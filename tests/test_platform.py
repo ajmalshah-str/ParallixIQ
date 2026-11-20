@@ -174,7 +174,7 @@ class TestEngine2HallucinationDetector(unittest.TestCase):
         result = self.detector.evaluate(ai_response, self.trusted_evidence)
         self.assertEqual(result.hallucination_risk, "high")
 
-        contradicted_claims = [c for c in result.claims if c.status == "contradicted"]
+        contradicted_claims = [c for c in result.claims if c.status == "CONTRADICTED"]
         self.assertEqual(len(contradicted_claims), 1)
         self.assertEqual(contradicted_claims[0].risk_level, "high")
         self.assertEqual(contradicted_claims[0].evidence_ref, "daily_limit=50000")
@@ -186,7 +186,7 @@ class TestEngine2HallucinationDetector(unittest.TestCase):
         self.assertEqual(result.hallucination_risk, "medium")
 
         unverified_facts = [
-            c for c in result.claims if c.category == "verifiable_fact" and c.status == "unverified"
+            c for c in result.claims if c.category == "verifiable_fact" and c.status in ("UNSUPPORTED", "UNVERIFIABLE")
         ]
         self.assertEqual(len(unverified_facts), 1)
         self.assertIsNone(unverified_facts[0].evidence_ref)
@@ -198,7 +198,7 @@ class TestEngine2HallucinationDetector(unittest.TestCase):
         result = self.detector.evaluate(ai_response, self.trusted_evidence)
         self.assertEqual(result.hallucination_risk, "low")
 
-        confirmed_claims = [c for c in result.claims if c.status == "confirmed"]
+        confirmed_claims = [c for c in result.claims if c.status == "VERIFIED"]
         self.assertEqual(len(confirmed_claims), 1)
         self.assertEqual(confirmed_claims[0].risk_level, "low")
         self.assertEqual(confirmed_claims[0].evidence_ref, "account_balance=2500")
@@ -209,7 +209,7 @@ class TestEngine2HallucinationDetector(unittest.TestCase):
         result = self.detector.evaluate(ai_response, self.trusted_evidence)
         self.assertEqual(result.hallucination_risk, "low")
         self.assertEqual(result.claims[0].category, "opinion")
-        self.assertEqual(result.claims[0].status, "unverified")
+        self.assertEqual(result.claims[0].status, "UNVERIFIABLE")
         self.assertEqual(result.claims[0].risk_level, "low")
 
     def test_internal_contradiction_detection(self) -> None:

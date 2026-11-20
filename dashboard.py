@@ -244,7 +244,7 @@ class ParallixCommandCenter:
         self.idempotency_store.store(tenant_id, idempotency_key, payload, result)
         return 200, result
 
-    def approve_latest_hold(self) -> dict:
+    def approve_latest_hold(self, supervisor_id: str = "demo_supervisor") -> dict:
         if not self.bank.held_queue:
             return {
                 "approved": False,
@@ -259,9 +259,14 @@ class ParallixCommandCenter:
         amount = float(act.amount or 0.0)
         recipient = act.recipient or "Unknown"
 
-        if self.bank.balances["user_wallet"] >= amount:
-            self.bank.balances["user_wallet"] -= amount
-            self.bank.balances[recipient] = self.bank.balances.get(recipient, 0.0) + amount
+        override_decision = self.gateway.authorize_human_override(
+            user_input=ticket["user_input"],
+            action=act,
+            supervisor_id=supervisor_id,
+            session_id="human_review_queue",
+        )
+        exec_res = self.bank.execute_verified_transfer(act, override_decision)
+        if exec_res.get("execution_status") == "EXECUTED":
             self.activity_feed.insert(
                 0,
                 {
@@ -276,7 +281,7 @@ class ParallixCommandCenter:
             self.activity_feed = self.activity_feed[:8]
 
         return {
-            "approved": True,
+            "approved": exec_res.get("execution_status") == "EXECUTED",
             "message": f"Human supervisor approved INR {amount:.2f} transfer to {recipient}.",
             "wallet_balance": self.bank.balances["user_wallet"],
             "held_count": len(self.bank.held_queue),
@@ -342,14 +347,34 @@ class ParallixCommandCenter:
 
     def generate_adaptive_suite(self) -> dict:
         weak = self.adaptive_gen.analyze_weaknesses()
+        if weak["total_unresolved"] == 0:
+            sample_act = ExtractedAction(
+                intent="transfer", recipient="Rahul", amount=500.0, currency="INR", date="tomorrow", polarity="positive"
+            )
+            sample_dec = self.gateway.inspect_action(
+                user_input="Naale Rahulinu 500 roopa ayakkaruthu.",
+                action=ExtractedAction(
+                    intent="transfer", recipient="Rahul", amount=500.0, currency="INR", date="tomorrow", polarity="negative"
+                ),
+                session_id="engine8_demo",
+            )
+            self.explainer.explain_gateway_block(
+                user_input="Naale Rahulinu 500 roopa ayakkaruthu.",
+                proposed_action=sample_act,
+                decision=sample_dec,
+            )
+            weak = self.adaptive_gen.analyze_weaknesses()
+
         cases = self.adaptive_gen.generate_from_failures(max_cases=4)
         saved = self.adaptive_gen.save_versioned_dataset(
             cases, list(weak["top_failure_types"].keys())
         )
         return {
             "weaknesses": weak["top_failure_types"],
+            "source_incidents_count": weak["total_unresolved"],
             "saved_file": saved.name,
             "generated_cases": [c.model_dump() for c in cases],
+            "scope_disclosure": "BETA / SEMI-AUTOMATED: Synthesizes deduplicated, Engine-1-validated JSON regression suites from recorded SQLite incidents. Automated live model fine-tuning is not connected.",
             "db_counts": self.db.get_summary_counts(),
         }
 
@@ -898,7 +923,7 @@ HTML_PAGE = """<!DOCTYPE html>
   <!-- TOP SAAS TENANT & INDUSTRY PROFILE BAR -->
   <div class="saas-bar">
     <div class="saas-left">
-      <span class="tenant-badge">🏢 Demo Tenant: Sample Enterprise Client #4092 (SIMULATED)</span>
+      <span class="tenant-badge">🏢 Demo Tenant: Sample Enterprise Client #4092 (SIMULATED SANDBOX DATA &amp; ILLUSTRATIVE PRICING)</span>
       <span class="tier-badge" style="display:inline-flex; align-items:center; gap:6px;">
         <label for="pricingTierSelect" style="cursor:pointer;">💎 Illustrative Enterprise Pricing:</label>
         <select id="pricingTierSelect" aria-label="Illustrative Enterprise Pricing" style="background:#064e3b; color:#6ee7b7; border:1px solid rgba(16,185,129,0.5); border-radius:6px; padding:2px 8px; font-size:11.5px; font-weight:700; cursor:pointer;">
@@ -943,7 +968,7 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="shield-icon">PQ</div>
       <div>
         <h1 class="brand-title">PARALLIX IQ <span class="brand-badge">8-Engine Safety Infrastructure</span></h1>
-        <p class="brand-sub">Independent Multilingual Evaluation Lab & Runtime Action Firewall — AI Never Grades Itself</p>
+        <p class="brand-sub" style="font-size: 14.5px; font-weight: 500; letter-spacing: 0.015em; color: #e2e8f0; margin-top: 6px;">Deterministic Safety &amp; Multilingual Verification Layer for High-Stakes AI Agents</p>
       </div>
     </div>
 
@@ -983,7 +1008,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="pipe-status" id="node1Sub">Waiting for prompt</div>
       </div>
       <div class="pipe-node" id="node2">
-        <div class="pipe-step">Stage 2 • Engine 6</div>
+        <div class="pipe-step">Stage 2 • Structured Extraction (Pydantic)</div>
         <div class="pipe-name">Structured AI Parse</div>
         <div class="pipe-status" id="node2Sub">Pydantic schema enforced</div>
       </div>
@@ -1069,7 +1094,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <code>Trusted Record: Balance = ₹2,500 | Limit = ₹50,000</code>
       </div>
       <p style="font-size:13.5px; color:var(--muted); margin-top:0;">
-        Separates verifiable facts, assumptions, and opinions. Claims lacking supplied evidence stay marked <strong>unverified</strong>—never falsely declared wrong.
+        Audits each AI statement against supplied trusted evidence into four explicit verdicts: <strong>VERIFIED</strong> (matches record), <strong>CONTRADICTED</strong> (conflicts with record), <strong>UNSUPPORTED</strong> (objective claim without evidence), and <strong>UNVERIFIABLE</strong> (opinion/speculation).
       </p>
       <div class="input-bar">
         <input id="hallucInput" type="text" value="Your account balance is 2500 rupees. Your daily limit is 100000 rupees. RBI changed UPI rules yesterday. I think you should save more." />
@@ -1134,7 +1159,7 @@ HTML_PAGE = """<!DOCTYPE html>
           Evaluated across 600 semantic slots (Intent, Recipient, Amount, Currency, Date, Polarity) with rate-limit backoff resilience.
         </p>
         <div class="bar-row">
-          <div class="bar-meta"><span><strong>PARALLIX IQ + Gemini Slot Accuracy</strong></span><span><strong>93.83% (563/600)</strong></span></div>
+          <div class="bar-meta"><span><strong>PARALLIX IQ + Gemini Slot-Level Accuracy (74.00% exact-match)</strong></span><span><strong>93.83% (563/600 slots)</strong></span></div>
           <div class="bar-track"><div class="bar-fill" style="width:93.83%;"></div></div>
         </div>
         <div class="bar-row">
@@ -1142,8 +1167,8 @@ HTML_PAGE = """<!DOCTYPE html>
           <div class="bar-track"><div class="bar-fill" style="width:74%;"></div></div>
         </div>
         <div class="bar-row">
-          <div class="bar-meta"><span>Legacy Regex / Rule-Based Baseline</span><span>7.41%</span></div>
-          <div class="bar-track"><div class="bar-fill" style="width:7.41%; background:#ef4444;"></div></div>
+          <div class="bar-meta"><span>Deterministic Offline Baseline (<code>deterministic-baseline-parser-v1</code> • 357/600 slots, 4.00% exact-match)</span><span>59.50%</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:59.50%; background:#f43f5e;"></div></div>
         </div>
 
         <h3 style="font-size:14px; margin-top:20px;">Exact Match Breakdown by Dialect</h3>
@@ -1494,14 +1519,18 @@ async function runHallucination() {
   const risk = data.result.hallucination_risk;
   const mapClass = risk === 'high' ? 'BLOCK' : (risk === 'medium' ? 'HOLD' : 'PASS');
 
-  const rows = data.result.claims.map(c => `
+  const rows = data.result.claims.map(c => {
+    const st = (c.status || '').toUpperCase();
+    const pillCls = (st === 'VERIFIED' || st === 'CONFIRMED') ? 'PASS'
+      : (st === 'CONTRADICTED' ? 'BLOCK' : 'HOLD');
+    return `
     <tr>
       <td>${c.claim}</td>
       <td><code>${c.category}</code></td>
-      <td><span class="pill pill-${c.status === 'confirmed' ? 'PASS' : (c.status === 'contradicted' ? 'BLOCK' : 'HOLD')}">${c.status.toUpperCase()}</span></td>
-      <td>${c.evidence_ref || 'Evidence unavailable (kept unverified)'}</td>
-    </tr>
-  `).join('');
+      <td><span class="pill pill-${pillCls}">${st}</span></td>
+      <td>${c.evidence_ref || 'No matching record in supplied evidence (UNSUPPORTED)'}</td>
+    </tr>`;
+  }).join('');
 
   document.getElementById('hallucOutput').innerHTML = `
     <div class="verdict-card verdict-${mapClass}">
@@ -1550,7 +1579,7 @@ async function loadDrift(simulateDrop) {
 
   const banner = data.alert && data.alert.drift_detected
     ? `<div class="verdict-card verdict-BLOCK"><span class="pill pill-BLOCK">REGRESSION ALERT</span><strong>${data.alert.alert_message}</strong></div>`
-    : `<div class="verdict-card verdict-PASS"><span class="pill pill-PASS">BASELINE HEALTHY</span><strong>Model holding at 74.00% exact match (93.83% field precision).</strong></div>`;
+    : `<div class="verdict-card verdict-PASS"><span class="pill pill-PASS">BASELINE HEALTHY</span><strong>Model holding at 74.00% exact match (93.83% slot-level accuracy • 563/600 slots).</strong></div>`;
 
   const rows = data.models.map(m => `
     <tr>
@@ -1587,8 +1616,9 @@ async function runAdaptive() {
 
   document.getElementById('adaptiveOutput').innerHTML = `
     <div class="verdict-card verdict-PASS">
-      <span class="pill pill-PASS">DATASET SAVED</span>
-      <strong>Created ${data.generated_cases.length} validated adversarial tests in <code>datasets/${data.saved_file}</code></strong>
+      <span class="pill pill-PASS">DATASET SAVED (BETA)</span>
+      <strong>Synthesized ${data.generated_cases.length} deduplicated, Engine-1-validated regression test(s) from ${data.source_incidents_count || 1} recorded failure incident(s) into <code>datasets/${data.saved_file}</code></strong>
+      <p style="margin:6px 0 8px; font-size:12.5px; color:var(--muted);">${data.scope_disclosure || ''}</p>
       <table>
         <thead><tr><th>Test ID</th><th>Language</th><th>Difficulty</th><th>Generated Adversarial Prompt</th></tr></thead>
         <tbody>${rows}</tbody>

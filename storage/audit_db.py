@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sqlite3
@@ -8,10 +9,38 @@ from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DB_PATH = ROOT_DIR / "parallix_audit.db"
+GENESIS_HASH = "0" * 64
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _compute_audit_hash(
+    prev_hash: str,
+    session_id: str,
+    user_input: str,
+    proposed_action_json: str,
+    decision: str,
+    risk_score: float,
+    reasons_json: str,
+    created_at: str,
+) -> str:
+    canonical = json.dumps(
+        {
+            "prev_hash": prev_hash,
+            "session_id": session_id,
+            "user_input": user_input,
+            "proposed_action_json": proposed_action_json,
+            "decision": decision,
+            "risk_score": round(float(risk_score), 6),
+            "reasons_json": reasons_json,
+            "created_at": created_at,
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class AuditDatabase:
@@ -34,6 +63,7 @@ class AuditDatabase:
     def get_persistence_status(self) -> dict[str, Any]:
         external_db = bool(os.getenv("DATABASE_URL", "").strip())
         is_cloud_run = bool(os.getenv("K_SERVICE", "").strip())
+        chain = self.verify_audit_chain()
         return {
             "storage_backend": "sqlite_local",
             "db_path": str(self.db_path),
@@ -42,6 +72,9 @@ class AuditDatabase:
             "external_database_configured": external_db,
             "target_production_backend": "cloud_sql_postgresql",
             "migration_status": "pending_external_db_provisioning",
+            "audit_chain_valid": chain["valid"],
+            "audit_chain_records": chain["total_records"],
+            "audit_chain_head": chain["head_hash"],
             "warning": (
                 "Local SQLite storage is ephemeral on Cloud Run and isolated per container instance. "
                 "Provision Cloud SQL (PostgreSQL) via DATABASE_URL for durable multi-instance persistence."
@@ -85,7 +118,9 @@ class AuditDatabase:
                         decision TEXT NOT NULL,
                         risk_score REAL NOT NULL,
                         reasons_json TEXT NOT NULL,
-                        created_at TEXT NOT NULL
+                        created_at TEXT NOT NULL,
+                        prev_hash TEXT NOT NULL DEFAULT '',
+                        record_hash TEXT NOT NULL DEFAULT ''
                     );
 
                     CREATE TABLE IF NOT EXISTS failure_incidents (
@@ -111,6 +146,36 @@ class AuditDatabase:
                     );
                     """
                 )
+                cols = {row["name"] for row in conn.execute("PRAGMA table_info(gateway_audit)").fetchall()}
+                if "prev_hash" not in cols:
+                    conn.execute("ALTER TABLE gateway_audit ADD COLUMN prev_hash TEXT NOT NULL DEFAULT ''")
+                if "record_hash" not in cols:
+                    conn.execute("ALTER TABLE gateway_audit ADD COLUMN record_hash TEXT NOT NULL DEFAULT ''")
+
+                # Backfill any legacy rows that lack hashes so existing databases stay chain-valid
+                rows = conn.execute(
+                    "SELECT * FROM gateway_audit ORDER BY audit_id ASC"
+                ).fetchall()
+                prev = GENESIS_HASH
+                for row in rows:
+                    if not row["record_hash"]:
+                        rec_hash = _compute_audit_hash(
+                            prev_hash=prev,
+                            session_id=row["session_id"],
+                            user_input=row["user_input"],
+                            proposed_action_json=row["proposed_action_json"],
+                            decision=row["decision"],
+                            risk_score=row["risk_score"],
+                            reasons_json=row["reasons_json"],
+                            created_at=row["created_at"],
+                        )
+                        conn.execute(
+                            "UPDATE gateway_audit SET prev_hash = ?, record_hash = ? WHERE audit_id = ?",
+                            (prev, rec_hash, row["audit_id"]),
+                        )
+                        prev = rec_hash
+                    else:
+                        prev = row["record_hash"]
 
     def log_benchmark_run(
         self,
@@ -154,25 +219,100 @@ class AuditDatabase:
         risk_score: float,
         reasons: list[str],
     ) -> int:
+        action_json = json.dumps(proposed_action, ensure_ascii=False)
+        reasons_json = json.dumps(reasons, ensure_ascii=False)
+        created_at = _now_iso()
         with closing(self._connect()) as conn:
             with conn:
+                last = conn.execute(
+                    "SELECT record_hash FROM gateway_audit ORDER BY audit_id DESC LIMIT 1"
+                ).fetchone()
+                prev_hash = last["record_hash"] if (last and last["record_hash"]) else GENESIS_HASH
+                rec_hash = _compute_audit_hash(
+                    prev_hash=prev_hash,
+                    session_id=session_id,
+                    user_input=user_input,
+                    proposed_action_json=action_json,
+                    decision=decision,
+                    risk_score=risk_score,
+                    reasons_json=reasons_json,
+                    created_at=created_at,
+                )
                 cur = conn.execute(
                     """
                     INSERT INTO gateway_audit
-                    (session_id, user_input, proposed_action_json, decision, risk_score, reasons_json, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (session_id, user_input, proposed_action_json, decision, risk_score, reasons_json, created_at, prev_hash, record_hash)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         session_id,
                         user_input,
-                        json.dumps(proposed_action, ensure_ascii=False),
+                        action_json,
                         decision,
                         risk_score,
-                        json.dumps(reasons, ensure_ascii=False),
-                        _now_iso(),
+                        reasons_json,
+                        created_at,
+                        prev_hash,
+                        rec_hash,
                     ),
                 )
                 return int(cur.lastrowid)
+
+    def verify_audit_chain(self) -> dict[str, Any]:
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM gateway_audit ORDER BY audit_id ASC"
+            ).fetchall()
+
+        expected_prev = GENESIS_HASH
+        for row in rows:
+            if row["prev_hash"] != expected_prev:
+                return {
+                    "valid": False,
+                    "total_records": len(rows),
+                    "head_hash": expected_prev,
+                    "broken_audit_id": int(row["audit_id"]),
+                    "reason": f"prev_hash mismatch at audit_id={row['audit_id']}",
+                }
+            recomputed = _compute_audit_hash(
+                prev_hash=row["prev_hash"],
+                session_id=row["session_id"],
+                user_input=row["user_input"],
+                proposed_action_json=row["proposed_action_json"],
+                decision=row["decision"],
+                risk_score=row["risk_score"],
+                reasons_json=row["reasons_json"],
+                created_at=row["created_at"],
+            )
+            if row["record_hash"] != recomputed:
+                return {
+                    "valid": False,
+                    "total_records": len(rows),
+                    "head_hash": expected_prev,
+                    "broken_audit_id": int(row["audit_id"]),
+                    "reason": f"record_hash tamper detected at audit_id={row['audit_id']}",
+                }
+            expected_prev = row["record_hash"]
+
+        return {
+            "valid": True,
+            "total_records": len(rows),
+            "head_hash": expected_prev,
+            "broken_audit_id": None,
+            "reason": None,
+        }
+
+    def get_verified_audit_logs(self, limit: int = 20) -> dict[str, Any]:
+        integrity = self.verify_audit_chain()
+        with closing(self._connect()) as conn:
+            rows = conn.execute(
+                "SELECT * FROM gateway_audit ORDER BY audit_id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return {
+            "integrity": integrity,
+            "records": [dict(r) for r in rows],
+        }
 
     def log_failure_incident(self, report_dict: dict[str, Any]) -> None:
         with closing(self._connect()) as conn:

@@ -113,11 +113,11 @@ class TestEngine6AndFull10Scenarios(unittest.TestCase):
             "Your balance is 2500 INR. Your daily limit is 99000 INR. RBI issued a new circular yesterday.",
             trusted_evidence={"account_balance": 2500, "daily_limit": 50000},
         )
-        self.assertEqual(h8.claims[0].status, "confirmed")
+        self.assertEqual(h8.claims[0].status, "VERIFIED")
         self.assertEqual(h8.claims[0].evidence_ref, "account_balance=2500")
-        self.assertEqual(h8.claims[1].status, "contradicted")
+        self.assertEqual(h8.claims[1].status, "CONTRADICTED")
         self.assertEqual(h8.claims[1].evidence_ref, "daily_limit=50000")
-        self.assertEqual(h8.claims[2].status, "unverified")
+        self.assertEqual(h8.claims[2].status, "UNSUPPORTED")
         self.assertIsNone(h8.claims[2].evidence_ref)
 
         # Scenario 10: Action gateway bypass rejected

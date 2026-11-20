@@ -5,11 +5,12 @@ from storage.schemas import ClaimCheck, HallucinationResult
 OPINION_CUES = (
     "i think", "in my opinion", "probably", "seems like",
     "recommend", "should consider", "best to", "better to",
+    "should save", "feel like",
 )
 
 ASSUMPTION_CUES = (
     "assuming", "if ", "suppose", "likely", "may be",
-    "might be", "expected to", "usually",
+    "might be", "expected to", "usually", "possibly",
 )
 
 CONTRADICTION_PAIRS = (
@@ -57,6 +58,14 @@ def _matches_evidence_key(key: str, sentence_words: set[str]) -> bool:
 
 
 class HallucinationDetector:
+    """
+    Engine 2: Evidence-grounded claim auditor classifying AI statements into:
+      - VERIFIED: Fact matches supplied trusted evidence.
+      - CONTRADICTED: Fact conflicts with supplied trusted evidence or internal text.
+      - UNSUPPORTED: Objective factual assertion lacking backing in supplied evidence.
+      - UNVERIFIABLE: Subjective opinion or speculative assumption not falsifiable by records.
+    """
+
     def _find_internal_contradictions(self, sentences: list[str]) -> list[str]:
         contradictions: list[str] = []
         lowered_sentences = [s.lower() for s in sentences]
@@ -97,8 +106,8 @@ class HallucinationDetector:
             return ClaimCheck(
                 claim=sentence,
                 category=category,
-                status="unverified",
-                evidence_ref=None,
+                status="UNVERIFIABLE",
+                evidence_ref="Subjective/speculative statement (not an empirical record)",
                 risk_level="low",
             )
 
@@ -118,14 +127,14 @@ class HallucinationDetector:
                         return ClaimCheck(
                             claim=sentence,
                             category="verifiable_fact",
-                            status="confirmed",
+                            status="VERIFIED",
                             evidence_ref=ref,
                             risk_level="low",
                         )
                     return ClaimCheck(
                         claim=sentence,
                         category="verifiable_fact",
-                        status="contradicted",
+                        status="CONTRADICTED",
                         evidence_ref=ref,
                         risk_level="high",
                     )
@@ -135,14 +144,14 @@ class HallucinationDetector:
                 return ClaimCheck(
                     claim=sentence,
                     category="verifiable_fact",
-                    status="confirmed",
+                    status="VERIFIED",
                     evidence_ref=ref,
                     risk_level="low",
                 )
             return ClaimCheck(
                 claim=sentence,
                 category="verifiable_fact",
-                status="contradicted",
+                status="CONTRADICTED",
                 evidence_ref=ref,
                 risk_level="high",
             )
@@ -150,7 +159,7 @@ class HallucinationDetector:
         return ClaimCheck(
             claim=sentence,
             category="verifiable_fact",
-            status="unverified",
+            status="UNSUPPORTED",
             evidence_ref=None,
             risk_level="medium",
         )
@@ -171,16 +180,16 @@ class HallucinationDetector:
             claims.append(checked)
 
         has_contradiction = bool(contradictions) or any(
-            c.status == "contradicted" for c in claims
+            c.status == "CONTRADICTED" for c in claims
         )
-        has_unverified_fact = any(
-            c.category == "verifiable_fact" and c.status == "unverified"
+        has_unsupported_fact = any(
+            c.category == "verifiable_fact" and c.status == "UNSUPPORTED"
             for c in claims
         )
 
         if has_contradiction:
             risk = "high"
-        elif has_unverified_fact:
+        elif has_unsupported_fact:
             risk = "medium"
         else:
             risk = "low"

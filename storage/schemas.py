@@ -32,7 +32,7 @@ class IntentCheckResult(BaseModel):
 class ClaimCheck(BaseModel):
     claim: str
     category: Literal["verifiable_fact", "assumption", "opinion"]
-    status: Literal["confirmed", "contradicted", "unverified"]
+    status: Literal["VERIFIED", "CONTRADICTED", "UNSUPPORTED", "UNVERIFIABLE", "confirmed", "contradicted", "unverified"]
     evidence_ref: str | None = None
     risk_level: Literal["low", "medium", "high"] = "medium"
 

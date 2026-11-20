@@ -66,13 +66,51 @@ class ActionInterceptionGateway:
         canonical = json.dumps(action.model_dump(), sort_keys=True, default=str)
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    def verify_decision_token(self, decision: GatewayDecision | None, action: ExtractedAction) -> bool:
+    def verify_decision_token(
+        self,
+        decision: GatewayDecision | None,
+        action: ExtractedAction,
+        consume: bool = True,
+    ) -> bool:
         if decision is None or decision.decision != "PASS":
             return False
-        expected_digest = self._authorized_decisions.get(id(decision))
+        token_id = id(decision)
+        expected_digest = self._authorized_decisions.get(token_id)
         if not expected_digest:
             return False
-        return expected_digest == self._action_digest(action)
+        if expected_digest != self._action_digest(action):
+            return False
+        if consume:
+            self._authorized_decisions.pop(token_id, None)
+        return True
+
+    def authorize_human_override(
+        self,
+        user_input: str,
+        action: ExtractedAction,
+        supervisor_id: str,
+        session_id: str = "human_override",
+    ) -> GatewayDecision:
+        if not supervisor_id or not supervisor_id.strip():
+            raise PermissionError("Supervisor identity required to authorize a held transaction.")
+        if action.polarity == "negative" or action.amount is None or action.amount <= 0 or not (action.recipient or "").strip():
+            raise PermissionError("Hard-blocked or malformed actions cannot be approved via human override.")
+        decision = GatewayDecision(
+            decision="PASS",
+            risk_score=0.15,
+            reasons=[f"Secondary approval granted by supervisor '{supervisor_id.strip()}'."],
+            requires_human_review=False,
+        )
+        self._authorized_decisions[id(decision)] = self._action_digest(action)
+        self.db.log_gateway_decision(
+            session_id=session_id,
+            user_input=redact_secrets(user_input or ""),
+            proposed_action=action.model_dump(),
+            decision=decision.decision,
+            risk_score=decision.risk_score,
+            reasons=decision.reasons,
+        )
+        return decision
 
     def inspect_action(
         self,
@@ -262,14 +300,23 @@ class ActionInterceptionGateway:
             )
             self._authorized_decisions[id(decision)] = self._action_digest(action)
 
-        self.db.log_gateway_decision(
-            session_id=session_id,
-            user_input=user_input,
-            proposed_action=action.model_dump(),
-            decision=decision.decision,
-            risk_score=decision.risk_score,
-            reasons=decision.reasons,
-        )
+        try:
+            self.db.log_gateway_decision(
+                session_id=session_id,
+                user_input=user_input,
+                proposed_action=action.model_dump(),
+                decision=decision.decision,
+                risk_score=decision.risk_score,
+                reasons=decision.reasons,
+            )
+        except Exception as db_exc:
+            self._authorized_decisions.pop(id(decision), None)
+            return GatewayDecision(
+                decision="BLOCK",
+                risk_score=1.0,
+                reasons=[f"Audit ledger write failed ({type(db_exc).__name__}) - fail-closed protection engaged."],
+                requires_human_review=False,
+            )
         return decision
 
     def inspect_bundle(
