@@ -1,88 +1,31 @@
-# PARALLIX IQ: Multilingual AI Reliability Benchmark Report
+# Internal Benchmark Results — 100 Test Cases
 
-**Evaluation Date:** 2026-11-06 15:59:16  
-**Evaluated LLM Engine:** Google Gemini (`gemini-flash-lite-latest`)  
-**Baseline Engine:** Deterministic Regex & Rule-Based Intent Parser  
-**Languages Evaluated:** English, Malayalam (മലയാളം), Manglish, Hindi (हिन्दी), Hinglish  
-**Total Scope:** 54 comprehensive test cases across standard, colloquial, and edge-case dialogues.  
+- **Evaluation Version:** `audit-v2.0-reproducible`
+- **Execution Timestamp (UTC):** `2026-11-20T08:42:32.037002+00:00`
+- **Evaluated Engine (Reproducible Offline Run):** `deterministic-baseline-parser-v1`
+- **Prior Live Gemini Snapshot (`gemini-flash-lite-latest`):** `74.0%` exact-match (`74/100`), `93.83%` slot-level precision (`563/600` slots)
+- **Dataset Size & Integrity:** `100` cases (`100` unique, `0` duplicates)
 
----
+## 1. Dataset Split Audit (Leakage & Overlap Disclosure)
 
-## 1. Executive Research Summary
+| Dataset Split | Cases | Exact-Match | Slot Agreement | Non-Null Precision | Non-Null Recall | Non-Null F1 | False PASS Rate |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **All Cases (`master_100_suite.json`)** | 100 | 4.0% | 59.5% | 91.48% | 57.81% | 70.85% | 0.0% |
+| **Development-Overlap Split** | 53 | 7.55% | 62.26% | 94.9% | 60.78% | 74.1% | 0.0% |
+| **Held-Out Expansion Split** | 47 | 0.0% | 56.38% | 87.5% | 54.44% | 67.12% | 0.0% |
 
-| Evaluation Dimension | Baseline Rule Engine | Google Gemini Engine | Absolute Delta |
-| :--- | :--- | :--- | :--- |
-| **Overall Exact-Match Rate** | 7.41% (4/54) | **59.26%** (32/54) | **+51.85%** |
-| **Field-Level Semantic Precision** | 62.04% (201/324) | **80.56%** (261/324) | **+18.52%** |
+## 2. Reproducible Breakdown by Language
 
----
+| Language | Cases | Exact-Match | Slot Agreement | Intent Acc | Entity Acc | Negation Det | False PASS | False BLOCK | HOLD Rate |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **English** | 21 | 19.05% | 80.95% | 90.48% | 33.33% | 100.0% | 0.0% | 43.75% | 9.52% |
+| **Hindi** | 11 | 0.0% | 45.45% | 0.0% | 0.0% | 0.0% | 0.0% | 100.0% | 0.0% |
+| **Hinglish** | 26 | 0.0% | 46.79% | 23.08% | 0.0% | 0.0% | 0.0% | 100.0% | 0.0% |
+| **Malayalam** | 12 | 0.0% | 62.5% | 41.67% | 0.0% | 100.0% | 0.0% | 100.0% | 0.0% |
+| **Manglish** | 30 | 0.0% | 59.44% | 43.33% | 0.0% | 50.0% | 0.0% | 95.45% | 3.33% |
 
-## 2. Language & Dialogue Suite Breakdown
+## 3. Methodology & Limitations
 
-| Evaluation Suite | Total Cases | Baseline Exact | Gemini Exact | Gemini Field Precision |
-| :--- | :--- | :--- | :--- | :--- |
-| **English** | 6 | 66.7% | **100.0%** | 100.0% |
-| **Malayalam** | 6 | 0.0% | **100.0%** | 100.0% |
-| **Manglish** | 8 | 0.0% | **100.0%** | 100.0% |
-| **Hindi** | 6 | 0.0% | **16.7%** | 86.1% |
-| **Hinglish** | 8 | 0.0% | **87.5%** | 97.9% |
-| **Master Exhaustive Dialogues** | 20 | 0.0% | **20.0%** | 52.5% |
-
----
-
-## 3. Linguistic & Behavioral Category Analysis
-
-| Linguistic Category | Total Cases | Gemini Matches Cleared | Reliability Rate | Primary Failure / Success Profile |
-| :--- | :--- | :--- | :--- | :--- |
-| `adversarial_security` | 1 | 0 | **0.0%** | Ambiguity / Entity Edge Case |
-| `ambiguity` | 5 | 4 | **80.0%** | Ambiguity / Entity Edge Case |
-| `conditional_dependency` | 2 | 0 | **0.0%** | Ambiguity / Entity Edge Case |
-| `incomplete_missing_data` | 2 | 0 | **0.0%** | Ambiguity / Entity Edge Case |
-| `multi_entity` | 1 | 0 | **0.0%** | Ambiguity / Entity Edge Case |
-| `negation` | 5 | 4 | **80.0%** | Ambiguity / Entity Edge Case |
-| `non_actionable` | 3 | 0 | **0.0%** | Ambiguity / Entity Edge Case |
-| `number_words` | 4 | 3 | **75.0%** | Ambiguity / Entity Edge Case |
-| `regional_dialect` | 4 | 3 | **75.0%** | Ambiguity / Entity Edge Case |
-| `self_repair` | 2 | 0 | **0.0%** | Ambiguity / Entity Edge Case |
-| `spelling` | 5 | 5 | **100.0%** | 100% Reliable |
-| `spelling_shorthand` | 2 | 0 | **0.0%** | Ambiguity / Entity Edge Case |
-| `standard` | 5 | 5 | **100.0%** | 100% Reliable |
-| `vernacular_numbers` | 3 | 1 | **33.3%** | Ambiguity / Entity Edge Case |
-| `word_order` | 10 | 7 | **70.0%** | Ambiguity / Entity Edge Case |
-
----
-
-## 4. Target Entity Extraction Precision
-
-| Target Entity Slot | Evaluations | Baseline Precision | Gemini Precision | Extraction Role |
-| :--- | :--- | :--- | :--- | :--- |
-| `intent` | 54 | 44.4% | **81.5%** | Slot normalization & validation |
-| `recipient` | 54 | 14.8% | **66.7%** | Slot normalization & validation |
-| `amount` | 54 | 74.1% | **77.8%** | Slot normalization & validation |
-| `currency` | 54 | 100.0% | **100.0%** | Slot normalization & validation |
-| `date` | 54 | 51.9% | **81.5%** | Slot normalization & validation |
-| `polarity` | 54 | 87.0% | **75.9%** | Slot normalization & validation |
-
----
-
-## 5. Critical Research Insights & Safety Analysis
-
-### A. The Morphological Agglutination Barrier
-
-- **Baseline Weakness:** Deterministic regex architectures failed completely on Indic agglutinative case endings (`-inu`, `-kku`, `-ന്`, `-ko`), scoring 0% exact-match accuracy in native scripts.
-
-- **Gemini Solution:** Gemini normalized all inflected forms back to base canonical entities (`രാഹുലിന്` -> `Rahul`), achieving over 97% entity precision across all Indian languages.
-
-
-### B. Abbreviation Ambiguity as a Financial Safety Feature
-
-- In chat shorthand test cases (`rhl 500 nle snd`), Gemini resisted hallucinating the 3-letter consonant cluster `rhl` into `Rahul`.
-
-- In production financial applications, guessing a recipient's identity without contact book validation is a major security hazard. Flagging abbreviated entities for confirmation is the correct fail-safe behavior.
-
-
-### C. Action Reliability Guardrails
-
-- **Debt & Passive Statements:** Non-actionable statements (`Rahul owes me 500`) were successfully classified as `intent: null` / `statement`, preventing unauthorized transaction execution.
-
-- **Conditional Contradictions:** Statements with contingencies (`Agar salary aaye toh`, `Call cheythal maathram`) were correctly parsed with `conditional` polarity, holding simulated funds.
+- Internal benchmark curated by the founder; not yet audited by an external third-party laboratory.
+- 53 of 100 prompts overlap with earlier language development suites; 47 prompts represent unseen expansion cases.
+- Deterministic offline mode measures baseline rule-parser behavior without network variance; pass --live-gemini for live API runs.

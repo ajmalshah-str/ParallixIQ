@@ -1,5 +1,8 @@
+import os
+from typing import Any
+from adapters.base import BaseModelAdapter
 from adapters.gemini_adapter import GeminiAdapter
-from storage.schemas import ExtractedAction, ExtractionBundle
+from storage.schemas import ExtractedAction
 
 
 class MultiModelConsensusRouter:
@@ -10,17 +13,20 @@ class MultiModelConsensusRouter:
 
     def __init__(
         self,
-        fast_model: str = "gemini-flash-lite-latest",
-        judge_model: str = "gemini-3.8-flash",
+        fast_model: str | None = None,
+        judge_model: str | None = None,
+        fast_adapter: BaseModelAdapter | None = None,
+        judge_adapter: BaseModelAdapter | None = None,
     ) -> None:
-        self.fast_adapter = GeminiAdapter(model_id=fast_model)
-        self.judge_adapter = GeminiAdapter(model_id=judge_model)
+        resolved_fast = fast_model or os.getenv("PARALLIX_FAST_MODEL", "gemini-flash-lite-latest")
+        resolved_judge = judge_model or os.getenv("PARALLIX_JUDGE_MODEL", "gemini-2.5-flash")
+        self.fast_adapter = fast_adapter if fast_adapter is not None else GeminiAdapter(model_id=resolved_fast)
+        self.judge_adapter = judge_adapter if judge_adapter is not None else GeminiAdapter(model_id=resolved_judge)
 
-    def extract_with_consensus(self, text: str) -> dict:
+    def extract_with_consensus(self, text: str) -> dict[str, Any]:
         fast_bundle, fast_ms = self.fast_adapter.extract_actions(text)
         primary = fast_bundle.actions[0] if fast_bundle.actions else ExtractedAction()
 
-        # Escalate if negation/condition appears or amount >= 10,000
         needs_second_opinion = (
             primary.polarity in ("negative", "conditional")
             or (primary.amount is not None and primary.amount >= 10000)
@@ -55,8 +61,47 @@ class MultiModelConsensusRouter:
             "judge_model_output": secondary.model_dump(),
         }
 
+    def compare_adapters(
+        self,
+        adapters: list[BaseModelAdapter],
+        prompts: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Evaluates identical prompts across connected adapters and reports
+        unimplemented providers honestly as PLANNED without inventing scores.
+        """
+        results: list[dict[str, Any]] = []
+        for adapter in adapters:
+            if getattr(adapter, "status", "planned") != "connected":
+                results.append(
+                    {
+                        "provider": adapter.provider,
+                        "model_id": adapter.model_id,
+                        "status": "PLANNED",
+                        "tested_prompts": 0,
+                        "avg_latency_ms": None,
+                        "outputs": [],
+                    }
+                )
+                continue
 
-if __name__ == "__main__":
-    router = MultiModelConsensusRouter()
-    sample = "Naale Rahulinu 500 roopa ayakkaruthu."
-    print(router.extract_with_consensus(sample))
+            total_ms = 0.0
+            outputs: list[dict[str, Any]] = []
+            for p in prompts:
+                bundle, ms = adapter.extract_actions(p)
+                total_ms += ms
+                primary = bundle.actions[0].model_dump() if bundle.actions else ExtractedAction().model_dump()
+                outputs.append({"input": p, "extracted": primary, "latency_ms": ms})
+
+            avg_ms = round(total_ms / len(prompts), 2) if prompts else 0.0
+            results.append(
+                {
+                    "provider": adapter.provider,
+                    "model_id": adapter.model_id,
+                    "status": "CONNECTED",
+                    "tested_prompts": len(prompts),
+                    "avg_latency_ms": avg_ms,
+                    "outputs": outputs,
+                }
+            )
+        return results

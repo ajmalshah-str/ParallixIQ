@@ -18,6 +18,8 @@ CONTRADICTION_PAIRS = (
     ({"free", "zero fee", "no charge"}, {"charged", "fee applies", "deducted"}),
 )
 
+_GENERIC_KEY_WORDS = {"the", "and", "for", "with", "user", "current", "total", "value", "status", "account"}
+
 
 def _split_sentences(text: str) -> list[str]:
     parts = re.split(r"(?<=[.!?।])\s+|\n+", text.strip())
@@ -44,12 +46,21 @@ def _key_tokens(key: str) -> set[str]:
     return {t for t in tokens if len(t) > 2}
 
 
+def _matches_evidence_key(key: str, sentence_words: set[str]) -> bool:
+    tokens = _key_tokens(key)
+    if not tokens:
+        return False
+    if tokens.issubset(sentence_words):
+        return True
+    distinctive = tokens - _GENERIC_KEY_WORDS
+    return bool(distinctive and distinctive.intersection(sentence_words))
+
+
 class HallucinationDetector:
     def _find_internal_contradictions(self, sentences: list[str]) -> list[str]:
         contradictions: list[str] = []
         lowered_sentences = [s.lower() for s in sentences]
 
-        # 1. Check opposing state keywords across sentences
         for pos_words, neg_words in CONTRADICTION_PAIRS:
             pos_hit = next((s for s in sentences if any(w in s.lower() for w in pos_words)), None)
             neg_hit = next((s for s in sentences if any(w in s.lower() for w in neg_words)), None)
@@ -58,7 +69,6 @@ class HallucinationDetector:
                     f"Conflicting status claims: '{pos_hit}' vs '{neg_hit}'"
                 )
 
-        # 2. Check conflicting numbers on the same topic (e.g., two different balances)
         topic_numbers: dict[str, set[float]] = {}
         for s in lowered_sentences:
             nums = _extract_numbers(s)
@@ -93,16 +103,15 @@ class HallucinationDetector:
             )
 
         lowered = sentence.lower()
+        sentence_words = set(re.split(r"\W+", lowered))
         claim_numbers = _extract_numbers(lowered)
 
         for key, expected_val in trusted_evidence.items():
-            tokens = _key_tokens(key)
-            if not tokens or not tokens.issubset(set(re.split(r"\W+", lowered))):
+            if not _matches_evidence_key(key, sentence_words):
                 continue
 
             ref = f"{key}={expected_val}"
 
-            # Numeric comparison against trusted evidence
             if isinstance(expected_val, (int, float)) and not isinstance(expected_val, bool):
                 if claim_numbers:
                     if float(expected_val) in claim_numbers:
@@ -121,7 +130,6 @@ class HallucinationDetector:
                         risk_level="high",
                     )
 
-            # Text or boolean comparison against trusted evidence
             expected_str = str(expected_val).lower()
             if expected_str in lowered:
                 return ClaimCheck(
@@ -139,7 +147,6 @@ class HallucinationDetector:
                 risk_level="high",
             )
 
-        # Evidence unavailable -> mark unverified, never mark false
         return ClaimCheck(
             claim=sentence,
             category="verifiable_fact",

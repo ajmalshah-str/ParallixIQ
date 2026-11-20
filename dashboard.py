@@ -292,37 +292,42 @@ class ParallixCommandCenter:
         }
 
     def generate_counterfactuals(self, sentence: str) -> dict:
+        base_bundle = self._local_fallback_parse(sentence)
         variants = self.counterfactual_engine.generate_variants(sentence)
-        return {
-            "base": sentence,
-            "variants": [
+        evaluated = []
+        for v in variants:
+            mod_bundle = self._local_fallback_parse(v.modified_input)
+            cf_res = self.counterfactual_engine.evaluate_pair(v, base_bundle, mod_bundle)
+            evaluated.append(
                 {
                     "perturbation_type": v.perturbation_type,
                     "modified_input": v.modified_input,
                     "expected_change": v.expected_change,
+                    "observed_change": cf_res.observed_change,
+                    "passed": cf_res.passed,
                 }
-                for v in variants
-            ],
+            )
+        return {
+            "base": sentence,
+            "variants": evaluated,
         }
 
     def check_drift_and_models(self, simulate_drop: bool = False) -> dict:
         alert_info = None
         if simulate_drop:
-            rep = self.drift_monitor.record_and_evaluate(
-                model_id="gemini-flash-lite-latest",
-                dataset_version="master_100_v1",
-                total_cases=100,
-                exact_match_rate=61.5,
-                field_precision=86.2,
-            )
-            alert_info = rep.model_dump(mode="json")
-            self.drift_monitor.record_and_evaluate(
-                model_id="gemini-flash-lite-latest",
-                dataset_version="master_100_v1",
-                total_cases=100,
-                exact_match_rate=74.0,
-                field_precision=93.83,
-            )
+            alert_info = {
+                "simulated": True,
+                "label": "SIMULATED REGRESSION DEMONSTRATION — Not an actual model degradation",
+                "model_id": "gemini-flash-lite-latest",
+                "baseline_accuracy": 74.0,
+                "current_accuracy": 61.5,
+                "delta": -12.5,
+                "drift_detected": True,
+                "alert_message": (
+                    "[SIMULATED DRIFT DEMO] Accuracy drop from 74.00% to 61.50% (-12.50%) "
+                    "exceeds -3.00% threshold."
+                ),
+            }
 
         trend = self.drift_monitor.get_trend_summary("gemini-flash-lite-latest")
         models = build_comparison_table(
