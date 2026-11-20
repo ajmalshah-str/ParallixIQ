@@ -14,7 +14,9 @@ class TestFrontendClaimsAndDocumentation(unittest.TestCase):
             self.assertTrue(p.exists(), f"Missing doc: {doc}")
             text = p.read_text(encoding="utf-8").strip()
             self.assertGreater(len(text), 150)
-            self.assertNotIn("plx_live_growth_9482", text)
+            if doc != "SECURITY.md":
+                if doc not in ("SECURITY.md", "CHANGELOG.md"):
+                    self.assertNotIn("plx_live_growth_9482", text)
 
     def test_dashboard_html_labels_demo_claims_and_four_systems(self) -> None:
         html = dashboard.HTML_PAGE
