@@ -1595,7 +1595,7 @@ class CommandCenterHandler(BaseHTTPRequestHandler):
                 {
                     "status": "ok",
                     "service": "parallix-iq",
-                    "storage_mode": "ephemeral_sqlite_beta",
+                    "persistence": CENTER.db.get_persistence_status(),
                     "api_auth_configured": CENTER.api_key_manager.is_configured,
                 },
                 status=200,
