@@ -1,0 +1,11 @@
+.venv
+.env
+*.db
+*.db-wal
+*.db-shm
+__pycache__
+*/__pycache__
+*/*/__pycache__
+.git
+.vscode
+.agents

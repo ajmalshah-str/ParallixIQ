@@ -1,0 +1,92 @@
+[
+  {
+    "id": "EN001",
+    "language": "English",
+    "category": "standard",
+    "variation": "normal_word_order",
+    "input": "Transfer 500 rupees to Rahul tomorrow.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "EN002",
+    "language": "English",
+    "category": "word_order",
+    "variation": "recipient_first",
+    "input": "Send Rahul 500 rupees tomorrow.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "EN003",
+    "language": "English",
+    "category": "word_order",
+    "variation": "amount_first",
+    "input": "500 rupees should be sent to Rahul tomorrow.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "EN004",
+    "language": "English",
+    "category": "spelling",
+    "variation": "number_in_words",
+    "input": "Send five hundred rupees to Rahul tomorrow.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "EN005",
+    "language": "English",
+    "category": "negation",
+    "variation": "negative_instruction",
+    "input": "Do not transfer 500 rupees to Rahul tomorrow.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "negative"
+    }
+  },
+  {
+    "id": "EN006",
+    "language": "English",
+    "category": "ambiguity",
+    "variation": "question",
+    "input": "Can I transfer 500 rupees to Rahul tomorrow?",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "question"
+    }
+  }
+]

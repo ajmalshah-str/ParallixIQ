@@ -1,0 +1,242 @@
+[
+  {
+    "id": "DIV_001",
+    "language": "Manglish",
+    "category": "colloquial_slang",
+    "variation": "thallividu_slang",
+    "input": "Ikkakku oru anjooru roopa ippo thanne gpay thalli vidu.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Ikka",
+      "amount": 500,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_002",
+    "language": "Malayalam",
+    "category": "colloquial_slang",
+    "variation": "native_script_slang",
+    "input": "സുരേഷ് ചേട്ടന് ഒരു ആയിരം രൂപ ഇട്ടുകൊടുക്ക്.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Suresh Chettan",
+      "amount": 1000,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_003",
+    "language": "Manglish",
+    "category": "tech_shorthand",
+    "variation": "k_notation",
+    "input": "Aliyannu 2k upi thattu naale raavile.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Aliyan",
+      "amount": 2000,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_004",
+    "language": "English",
+    "category": "colloquial_slang",
+    "variation": "bucks_slang",
+    "input": "Drop 500 bucks to Rahul right now.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_005",
+    "language": "Manglish",
+    "category": "number_words",
+    "variation": "fractional_number",
+    "input": "Ammakku onnara aayiram roopa innu vaikitt ayakkanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Amma",
+      "amount": 1500,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_006",
+    "language": "Malayalam",
+    "category": "number_words",
+    "variation": "large_number_words",
+    "input": "ഫൈസലിന് പതിനായിരം രൂപ നാളെ കൊടുക്കണം.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Faisal",
+      "amount": 10000,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_007",
+    "language": "Manglish",
+    "category": "negation",
+    "variation": "slang_prohibition",
+    "input": "Kichuvinu 500 roopa ippo idalle.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Kichu",
+      "amount": 500,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "negative"
+    }
+  },
+  {
+    "id": "DIV_008",
+    "language": "Malayalam",
+    "category": "negation",
+    "variation": "native_prohibition",
+    "input": "നാളെ അമ്മയ്ക്ക് പൈസ ഒന്നും അയക്കരുത്.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Amma",
+      "amount": null,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "negative"
+    }
+  },
+  {
+    "id": "DIV_009",
+    "language": "Manglish",
+    "category": "ambiguity",
+    "variation": "permission_question",
+    "input": "Njan Sureshinu 1000 roopa gpay cheyyatte?",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Suresh",
+      "amount": 1000,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "question"
+    }
+  },
+  {
+    "id": "DIV_010",
+    "language": "Malayalam",
+    "category": "ambiguity",
+    "variation": "native_question",
+    "input": "രാഹുലിന് 500 രൂപ അയച്ചു കൊടുക്കണമോ?",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": null,
+      "polarity": "question"
+    }
+  },
+  {
+    "id": "DIV_011",
+    "language": "English",
+    "category": "self_repair",
+    "variation": "amount_correction",
+    "input": "Transfer 500 to Rahul... no wait, make it 1000 tomorrow.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 1000,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_012",
+    "language": "Manglish",
+    "category": "self_repair",
+    "variation": "recipient_correction",
+    "input": "Rahulinu 500 ayakk, alla alla Anuvinu ayakk innu.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Anu",
+      "amount": 500,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_013",
+    "language": "Manglish",
+    "category": "incomplete_safety",
+    "variation": "missing_amount",
+    "input": "Ammakku urgent aayi kashu ayakkanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Amma",
+      "amount": null,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_014",
+    "language": "English",
+    "category": "incomplete_safety",
+    "variation": "missing_recipient",
+    "input": "Send 500 rupees right now via UPI.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": null,
+      "amount": 500,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_015",
+    "language": "Manglish",
+    "category": "temporal",
+    "variation": "relative_daypart",
+    "input": "Mwonu naale vaikitt 250 roopa kodukkanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Mwonu",
+      "amount": 250,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "DIV_016",
+    "language": "Malayalam",
+    "category": "compound_name",
+    "variation": "compound_entity",
+    "input": "ഡോക്ടർ തോമസിന് 1500 രൂപ ഇന്ന് അയക്കണം.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Doctor Thomas",
+      "amount": 1500,
+      "currency": "INR",
+      "date": "today",
+      "polarity": "positive"
+    }
+  }
+]

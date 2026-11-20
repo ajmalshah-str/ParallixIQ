@@ -1,0 +1,92 @@
+[
+  {
+    "id": "HI001",
+    "language": "Hindi",
+    "category": "standard",
+    "variation": "normal_word_order",
+    "input": "कल राहुल को 500 रुपये भेजना।",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HI002",
+    "language": "Hindi",
+    "category": "word_order",
+    "variation": "recipient_first",
+    "input": "राहुल को कल 500 रुपये भेज देना।",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HI003",
+    "language": "Hindi",
+    "category": "word_order",
+    "variation": "amount_first",
+    "input": "500 रुपये कल राहुल को भेज दो।",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HI004",
+    "language": "Hindi",
+    "category": "number_words",
+    "variation": "amount_in_words",
+    "input": "कल राहुल को पाँच सौ रुपये भेजना।",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HI005",
+    "language": "Hindi",
+    "category": "negation",
+    "variation": "negative_instruction",
+    "input": "कल राहुल को 500 रुपये मत भेजना।",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "negative"
+    }
+  },
+  {
+    "id": "HI006",
+    "language": "Hindi",
+    "category": "ambiguity",
+    "variation": "question",
+    "input": "क्या मैं कल राहुल को 500 रुपये भेज सकता हूँ?",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "question"
+    }
+  }
+]

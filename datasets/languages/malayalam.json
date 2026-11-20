@@ -1,0 +1,92 @@
+[
+  {
+    "id": "ML001",
+    "language": "Malayalam",
+    "category": "standard",
+    "variation": "normal_word_order",
+    "input": "നാളെ രാഹുലിന് 500 രൂപ അയക്കണം.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "ML002",
+    "language": "Malayalam",
+    "category": "word_order",
+    "variation": "recipient_first",
+    "input": "രാഹുലിന് നാളെ 500 രൂപ അയക്കണം.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "ML003",
+    "language": "Malayalam",
+    "category": "word_order",
+    "variation": "amount_first",
+    "input": "500 രൂപ നാളെ രാഹുലിന് അയക്കണം.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "ML004",
+    "language": "Malayalam",
+    "category": "number_words",
+    "variation": "amount_in_words",
+    "input": "നാളെ രാഹുലിന് അഞ്ഞൂറ് രൂപ അയക്കണം.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "ML005",
+    "language": "Malayalam",
+    "category": "negation",
+    "variation": "negative_instruction",
+    "input": "നാളെ രാഹുലിന് 500 രൂപ അയക്കരുത്.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "negative"
+    }
+  },
+  {
+    "id": "ML006",
+    "language": "Malayalam",
+    "category": "ambiguity",
+    "variation": "question",
+    "input": "നാളെ രാഹുലിന് 500 രൂപ അയക്കാമോ?",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "question"
+    }
+  }
+]

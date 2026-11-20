@@ -1,0 +1,122 @@
+[
+  {
+    "id": "MG001",
+    "language": "Manglish",
+    "category": "standard",
+    "variation": "normal_word_order",
+    "input": "Naale Rahulinu 500 roopa ayakkanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "MG002",
+    "language": "Manglish",
+    "category": "word_order",
+    "variation": "recipient_first",
+    "input": "Rahulinu naale 500 ayakkanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "MG003",
+    "language": "Manglish",
+    "category": "word_order",
+    "variation": "amount_first",
+    "input": "500 naale Rahulinu ayakkanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "MG004",
+    "language": "Manglish",
+    "category": "spelling",
+    "variation": "transliteration_variant",
+    "input": "Nale Rahulin 500 rupa ayakanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "MG005",
+    "language": "Manglish",
+    "category": "number_words",
+    "variation": "amount_in_words",
+    "input": "Naale Rahulinu anjooru roopa ayakkanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "MG006",
+    "language": "Manglish",
+    "category": "negation",
+    "variation": "negative_instruction",
+    "input": "Naale Rahulinu 500 roopa ayakkaruthu.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "negative"
+    }
+  },
+  {
+    "id": "MG007",
+    "language": "Manglish",
+    "category": "ambiguity",
+    "variation": "question",
+    "input": "Naale Rahulinu 500 roopa ayakkamo?",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "question"
+    }
+  },
+  {
+    "id": "MG008",
+    "language": "Manglish",
+    "category": "spelling",
+    "variation": "alternative_transliteration",
+    "input": "Naaley Rahul-inu 500 roopa ayakkanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  }
+]

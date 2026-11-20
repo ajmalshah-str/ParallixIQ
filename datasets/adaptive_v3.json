@@ -1,0 +1,11 @@
+{
+  "dataset_version": "adaptive_v3",
+  "created_at": "2026-11-20T05:36:35.529296+00:00",
+  "targeted_weaknesses": [
+    "gateway_block",
+    "gateway_hold",
+    "polarity_reversal"
+  ],
+  "total_cases": 0,
+  "test_cases": []
+}

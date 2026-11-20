@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "language": "English",
+    "input": "Transfer 5000 rupees to Rahul tomorrow.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 5000,
+      "currency": "INR",
+      "date": "tomorrow"
+    }
+  },
+  {
+    "id": 2,
+    "language": "Manglish",
+    "input": "Naale Rahul-inu 5000 rupees transfer cheyyanam.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 5000,
+      "currency": "INR",
+      "date": "tomorrow"
+    }
+  },
+  {
+    "id": 3,
+    "language": "Malayalam",
+    "input": "നാളെ രാഹുലിന് 5000 രൂപ അയക്കണം.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 5000,
+      "currency": "INR",
+      "date": "tomorrow"
+    }
+  }
+]

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "HG001",
+    "language": "Hinglish",
+    "category": "standard",
+    "variation": "normal_word_order",
+    "input": "Kal Rahul ko 500 rupaye bhej dena.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HG002",
+    "language": "Hinglish",
+    "category": "word_order",
+    "variation": "recipient_first",
+    "input": "Rahul ko kal 500 transfer kar do.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HG003",
+    "language": "Hinglish",
+    "category": "word_order",
+    "variation": "amount_first",
+    "input": "500 kal Rahul ko bhej de.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HG004",
+    "language": "Hinglish",
+    "category": "spelling",
+    "variation": "chat_shorthand",
+    "input": "Kl Rahul ko 500 rs bhj do.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HG005",
+    "language": "Hinglish",
+    "category": "number_words",
+    "variation": "amount_in_words",
+    "input": "Kal Rahul ko paanch sau rupaye bhej do.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  },
+  {
+    "id": "HG006",
+    "language": "Hinglish",
+    "category": "negation",
+    "variation": "negative_instruction",
+    "input": "Kal Rahul ko 500 mat bhejna.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "negative"
+    }
+  },
+  {
+    "id": "HG007",
+    "language": "Hinglish",
+    "category": "ambiguity",
+    "variation": "question",
+    "input": "Kya kal Rahul ko 500 bhej doon?",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Rahul",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "question"
+    }
+  },
+  {
+    "id": "HG008",
+    "language": "Hinglish",
+    "category": "spelling",
+    "variation": "kinship_slang",
+    "input": "Bhai ko kal 500 gpay kar de.",
+    "expected": {
+      "intent": "transfer",
+      "recipient": "Bhai",
+      "amount": 500,
+      "currency": "INR",
+      "date": "tomorrow",
+      "polarity": "positive"
+    }
+  }
+]
