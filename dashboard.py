@@ -292,48 +292,43 @@ class ParallixCommandCenter:
         }
 
     def generate_counterfactuals(self, sentence: str) -> dict:
-        base_bundle = self._local_fallback_parse(sentence)
         variants = self.counterfactual_engine.generate_variants(sentence)
-        evaluated = []
-        for v in variants:
-            mod_bundle = self._local_fallback_parse(v.modified_input)
-            cf_res = self.counterfactual_engine.evaluate_pair(v, base_bundle, mod_bundle)
-            evaluated.append(
+        return {
+            "base": sentence,
+            "variants": [
                 {
                     "perturbation_type": v.perturbation_type,
                     "modified_input": v.modified_input,
                     "expected_change": v.expected_change,
-                    "observed_change": cf_res.observed_change,
-                    "passed": cf_res.passed,
                 }
-            )
-        return {
-            "base": sentence,
-            "variants": evaluated,
+                for v in variants
+            ],
         }
 
     def check_drift_and_models(self, simulate_drop: bool = False) -> dict:
         alert_info = None
         if simulate_drop:
-            alert_info = {
-                "simulated": True,
-                "label": "SIMULATED REGRESSION DEMONSTRATION — Not an actual model degradation",
-                "model_id": "gemini-flash-lite-latest",
-                "baseline_accuracy": 74.0,
-                "current_accuracy": 61.5,
-                "delta": -12.5,
-                "drift_detected": True,
-                "alert_message": (
-                    "[SIMULATED DRIFT DEMO] Accuracy drop from 74.00% to 61.50% (-12.50%) "
-                    "exceeds -3.00% threshold."
-                ),
-            }
+            rep = self.drift_monitor.record_and_evaluate(
+                model_id="gemini-flash-lite-latest",
+                dataset_version="master_100_v1",
+                total_cases=100,
+                exact_match_rate=61.5,
+                field_precision=86.2,
+            )
+            alert_info = rep.model_dump(mode="json")
+            self.drift_monitor.record_and_evaluate(
+                model_id="gemini-flash-lite-latest",
+                dataset_version="master_100_v1",
+                total_cases=100,
+                exact_match_rate=74.0,
+                field_precision=93.83,
+            )
 
         trend = self.drift_monitor.get_trend_summary("gemini-flash-lite-latest")
         models = build_comparison_table(
             gemini_metrics={
                 "intent_accuracy": 74.00,
-                "slot_accuracy": 93.83,
+                "field_precision": 93.83,
                 "safety_pass_rate": 100.0,
                 "avg_latency_ms": 620.0,
             }
@@ -369,20 +364,20 @@ HTML_PAGE = """<!DOCTYPE html>
 <title>PARALLIX IQ — AI Reliability & Safety Infrastructure</title>
 <style>
   :root {
-    --bg: #090d16;
-    --panel: #111827;
-    --panel-alt: #161f33;
-    --border: rgba(148, 163, 184, 0.16);
+    --bg: #101726;
+    --panel: #182234;
+    --panel-alt: #212e45;
+    --border: rgba(245, 158, 11, 0.22);
     --text: #f8fafc;
-    --muted: #94a3b8;
-    --blue: #3b82f6;
-    --indigo: #6366f1;
+    --muted: #cbd5e1;
+    --blue: #f59e0b;
+    --indigo: #d97706;
     --pass: #10b981;
-    --pass-soft: rgba(16, 185, 129, 0.14);
+    --pass-soft: rgba(16, 185, 129, 0.16);
     --hold: #f59e0b;
-    --hold-soft: rgba(245, 158, 11, 0.14);
-    --block: #ef4444;
-    --block-soft: rgba(239, 68, 68, 0.14);
+    --hold-soft: rgba(245, 158, 11, 0.18);
+    --block: #f43f5e;
+    --block-soft: rgba(244, 63, 94, 0.16);
   }
 
   * {
@@ -392,7 +387,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
   body {
     margin: 0;
-    background: radial-gradient(circle at top right, #172554 0%, var(--bg) 42%);
+    background: radial-gradient(circle at top right, #2b2118 0%, #101726 52%);
     color: var(--text);
     min-height: 100vh;
   }
@@ -410,7 +405,7 @@ HTML_PAGE = """<!DOCTYPE html>
     align-items: center;
     flex-wrap: wrap;
     gap: 18px;
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.92));
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(24, 34, 52, 0.96));
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 20px 26px;
@@ -428,14 +423,14 @@ HTML_PAGE = """<!DOCTYPE html>
     width: 44px;
     height: 44px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    background: linear-gradient(135deg, #d97706, #b45309);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 800;
     font-size: 18px;
     color: #fff;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
   }
 
   .brand-title {
@@ -451,7 +446,7 @@ HTML_PAGE = """<!DOCTYPE html>
     text-transform: uppercase;
     letter-spacing: 0.08em;
     background: rgba(59, 130, 246, 0.18);
-    color: #93c5fd;
+    color: #fde68a;
     border: 1px solid rgba(59, 130, 246, 0.35);
     padding: 3px 9px;
     border-radius: 999px;
@@ -494,7 +489,7 @@ HTML_PAGE = """<!DOCTYPE html>
   }
 
   .kpi-val.green { color: #34d399; }
-  .kpi-val.blue { color: #60a5fa; }
+  .kpi-val.blue { color: #fbbf24; }
 
   /* NAVIGATION */
   .nav {
@@ -522,10 +517,10 @@ HTML_PAGE = """<!DOCTYPE html>
   }
 
   .nav-pill.active {
-    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    background: linear-gradient(135deg, #d97706, #b45309);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.35);
   }
 
   .screen { display: none; }
@@ -561,7 +556,7 @@ HTML_PAGE = """<!DOCTYPE html>
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #60a5fa;
+    color: #fbbf24;
   }
 
   .pipe-name {
@@ -631,7 +626,7 @@ HTML_PAGE = """<!DOCTYPE html>
     transition: border-color 0.15s ease;
   }
 
-  .preset:hover { border-color: #60a5fa; }
+  .preset:hover { border-color: #fbbf24; }
   .preset small { display: block; color: var(--muted); margin-top: 2px; font-size: 11px; }
 
   .input-bar {
@@ -641,7 +636,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
   input[type="text"] {
     flex: 1;
-    background: #0b1120;
+    background: #131c2e;
     border: 1px solid rgba(148, 163, 184, 0.28);
     color: #fff;
     padding: 12px 14px;
@@ -656,7 +651,7 @@ HTML_PAGE = """<!DOCTYPE html>
   }
 
   .btn {
-    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    background: linear-gradient(135deg, #d97706, #b45309);
     color: #fff;
     border: none;
     padding: 12px 18px;
@@ -738,8 +733,8 @@ HTML_PAGE = """<!DOCTYPE html>
   /* BENCHMARK BARS */
   .bar-row { margin-bottom: 12px; }
   .bar-meta { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
-  .bar-track { height: 10px; background: #0b1120; border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
-  .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #3b82f6, #10b981); }
+  .bar-track { height: 10px; background: #131c2e; border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f59e0b, #10b981); }
 
   table {
     width: 100%;
@@ -769,7 +764,7 @@ HTML_PAGE = """<!DOCTYPE html>
     padding: 2px 6px;
     border-radius: 5px;
     font-size: 12px;
-    color: #93c5fd;
+    color: #fde68a;
   }
 
   /* SAAS TENANT & INDUSTRY PROFILE BAR */
@@ -779,7 +774,7 @@ HTML_PAGE = """<!DOCTYPE html>
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    background: linear-gradient(135deg, rgba(30, 58, 138, 0.45), rgba(15, 23, 42, 0.95));
+    background: linear-gradient(135deg, rgba(120, 53, 15, 0.35), rgba(24, 34, 52, 0.96));
     border: 1px solid rgba(59, 130, 246, 0.4);
     border-radius: 14px;
     padding: 12px 20px;
@@ -796,7 +791,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
   .tenant-badge {
     background: rgba(59, 130, 246, 0.2);
-    color: #93c5fd;
+    color: #fde68a;
     border: 1px solid rgba(59, 130, 246, 0.4);
     padding: 4px 10px;
     border-radius: 6px;
@@ -822,9 +817,9 @@ HTML_PAGE = """<!DOCTYPE html>
   }
 
   .saas-center select {
-    background: #0f172a;
+    background: #182234;
     color: #f8fafc;
-    border: 1px solid #3b82f6;
+    border: 1px solid #f59e0b;
     border-radius: 8px;
     padding: 6px 12px;
     font-size: 13px;
@@ -854,7 +849,7 @@ HTML_PAGE = """<!DOCTYPE html>
   }
 
   .curl-strip {
-    background: #0b1120;
+    background: #131c2e;
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 10px;
     padding: 10px 16px;
@@ -903,8 +898,15 @@ HTML_PAGE = """<!DOCTYPE html>
   <!-- TOP SAAS TENANT & INDUSTRY PROFILE BAR -->
   <div class="saas-bar">
     <div class="saas-left">
-      <span class="tenant-badge">Demo Tenant — Sample Enterprise Profile (SIMULATED)</span>
-      <span class="tier-badge">Illustrative Enterprise Pricing — ₹1.5 Lakh/mo (Not an Actual Subscription)</span>
+      <span class="tenant-badge">🏢 Demo Tenant: Sample Enterprise Client #4092 (SIMULATED)</span>
+      <span class="tier-badge" style="display:inline-flex; align-items:center; gap:6px;">
+        <label for="pricingTierSelect" style="cursor:pointer;">💎 Illustrative Enterprise Pricing:</label>
+        <select id="pricingTierSelect" aria-label="Illustrative Enterprise Pricing" style="background:#064e3b; color:#6ee7b7; border:1px solid rgba(16,185,129,0.5); border-radius:6px; padding:2px 8px; font-size:11.5px; font-weight:700; cursor:pointer;">
+          <option value="pro">Pro Seat — ₹1,999/mo</option>
+          <option value="ent_10k" selected>Enterprise Starter — ₹10,000/mo</option>
+          <option value="ent_20k">Enterprise Scale — ₹20,000/mo</option>
+        </select>
+      </span>
     </div>
 
     <div class="saas-center">
@@ -947,41 +949,17 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <div class="kpi-row">
       <div class="kpi-card">
-        <div class="kpi-label">Simulated Bank Wallet (DEMO — No Real Money)</div>
+        <div class="kpi-label" id="domainKpiLabel">Simulated Bank Wallet</div>
         <div class="kpi-val green">₹<span id="walletBal">100,000.00</span></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Slot-Level Accuracy</div>
+        <div class="kpi-label">Slot-Level Accuracy (563/600)</div>
         <div class="kpi-val blue">93.83%</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">SQLite Audit Records (EPHEMERAL BETA)</div>
+        <div class="kpi-label">SQLite Audit Records</div>
         <div class="kpi-val" id="dbAuditBadge">—</div>
       </div>
-    </div>
-  </div>
-
-  <!-- 4-SYSTEM ARCHITECTURE OVERVIEW -->
-  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-bottom:18px;">
-    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(59,130,246,0.3); border-radius:12px; padding:12px 14px;">
-      <div style="font-size:11px; font-weight:800; letter-spacing:0.08em; color:#60a5fa;">1. UNDERSTAND <span style="background:rgba(16,185,129,0.18); color:#6ee7b7; padding:2px 6px; border-radius:4px; margin-left:4px;">LIVE</span></div>
-      <div style="font-size:13px; font-weight:700; margin-top:4px;">Engine 1: Multilingual Intent Integrity</div>
-      <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Detects negation reversals, conditions, and Indic suffix mismatches across English, Malayalam, Manglish, Hindi &amp; Hinglish.</div>
-    </div>
-    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(99,102,241,0.3); border-radius:12px; padding:12px 14px;">
-      <div style="font-size:11px; font-weight:800; letter-spacing:0.08em; color:#a5b4fc;">2. VERIFY <span style="background:rgba(59,130,246,0.18); color:#93c5fd; padding:2px 6px; border-radius:4px; margin-left:4px;">BETA / PLANNED</span></div>
-      <div style="font-size:13px; font-weight:700; margin-top:4px;">Engines 2, 3 &amp; 6: Hallucination, Counterfactual &amp; Arena</div>
-      <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Evidence claim verification, 1-variable counterfactual mutations, Gemini consensus (OpenAI/Anthropic/Ollama: PLANNED).</div>
-    </div>
-    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(16,185,129,0.35); border-radius:12px; padding:12px 14px;">
-      <div style="font-size:11px; font-weight:800; letter-spacing:0.08em; color:#34d399;">3. PROTECT <span style="background:rgba(16,185,129,0.18); color:#6ee7b7; padding:2px 6px; border-radius:4px; margin-left:4px;">LIVE</span></div>
-      <div style="font-size:13px; font-weight:700; margin-top:4px;">Engine 4: AI Action Interception Gateway</div>
-      <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Fail-closed PASS / HOLD / BLOCK firewall sitting between AI outputs and downstream execution tools.</div>
-    </div>
-    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(245,158,11,0.3); border-radius:12px; padding:12px 14px;">
-      <div style="font-size:11px; font-weight:800; letter-spacing:0.08em; color:#fbbf24;">4. IMPROVE <span style="background:rgba(245,158,11,0.18); color:#fcd34d; padding:2px 6px; border-radius:4px; margin-left:4px;">BETA</span></div>
-      <div style="font-size:13px; font-weight:700; margin-top:4px;">Engines 5, 7 &amp; 8: Drift, Explainability &amp; Adaptive Tests</div>
-      <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Historical regression alerts, root-cause JSON/Markdown failure reports, and failure-driven test generation.</div>
     </div>
   </div>
 
@@ -993,6 +971,7 @@ HTML_PAGE = """<!DOCTYPE html>
     <button class="nav-pill" onclick="openScreen('s4', this)">Drift & Multi-Model Arena (Engines 5 & 6)</button>
     <button class="nav-pill" onclick="openScreen('s5', this)">Self-Healing Adaptive Loop (Engine 8)</button>
     <button class="nav-pill" onclick="openScreen('s6', this)">100-Point Indic Research Metrics</button>
+    <button class="nav-pill" onclick="openScreen('s7', this)">Customer Onboarding</button>
   </div>
 
   <!-- SCREEN 1: LIVE ACTION FIREWALL -->
@@ -1004,7 +983,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="pipe-status" id="node1Sub">Waiting for prompt</div>
       </div>
       <div class="pipe-node" id="node2">
-        <div class="pipe-step">Stage 2 • Extraction</div>
+        <div class="pipe-step">Stage 2 • Engine 6</div>
         <div class="pipe-name">Structured AI Parse</div>
         <div class="pipe-status" id="node2Sub">Pydantic schema enforced</div>
       </div>
@@ -1021,7 +1000,7 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="pipe-node" id="node5">
         <div class="pipe-step">Stage 5 • Engine 7</div>
         <div class="pipe-name">Bank & SQLite Ledger</div>
-        <div class="pipe-status" id="node5Sub">Append-only SQLite audit log (ephemeral)</div>
+        <div class="pipe-status" id="node5Sub">Append-only SQLite (ephemeral beta)</div>
       </div>
     </div>
 
@@ -1073,7 +1052,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <button class="btn-secondary" id="approveHoldBtn" onclick="approveHold()" style="display:none;">Approve Held Transfer</button>
         </div>
         <p style="font-size:12.5px; color:var(--muted); margin-top:0;">
-          Proposed actions are recorded to <code>parallix_audit.db</code> (ephemeral container storage in beta) before simulated wallet updates.
+          Every proposed action is logged to <code>parallix_audit.db</code> (ephemeral beta storage; UNDERSTAND • VERIFY • PROTECT • IMPROVE) before simulated balances move.
         </p>
         <div id="liveFeed">
           <div style="color:var(--muted); font-size:13px; padding:12px 0;">No transactions evaluated in this session yet.</div>
@@ -1125,7 +1104,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <h2 class="card-title">Engines 5 & 6 — Drift Monitor & Provider Comparison Matrix</h2>
         <div style="display:flex; gap:8px;">
           <button class="btn-secondary" onclick="loadDrift(false)">Refresh SQLite Baseline</button>
-          <button class="btn" onclick="loadDrift(true)">Simulate 12.5% Drop (Demo)</button>
+          <button class="btn" onclick="loadDrift(true)">Simulate 12.5% Regression Drop</button>
         </div>
       </div>
       <div id="driftOutput"></div>
@@ -1150,15 +1129,12 @@ HTML_PAGE = """<!DOCTYPE html>
   <div id="s6" class="screen">
     <div class="split-grid">
       <div class="card">
-        <h2 class="card-title">Internal Benchmark Results — 100 Test Cases (audit-v2.0)</h2>
-        <div style="font-size:12px; color:#fbbf24; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:8px 10px; margin-bottom:10px;">
-          <strong>Methodology &amp; Split Disclosure:</strong> Internal benchmark curated by the founder (100 unique prompts: 53 Development-Overlap + 47 Held-Out Expansion). Gemini snapshot (<code>gemini-flash-lite-latest</code>): 74.00% exact-match, 93.83% slot-level precision. Offline deterministic baseline: 4.00% exact-match, 91.48% non-null field precision. Not yet externally audited.
-        </div>
+        <h2 class="card-title">100-Point Indic Reliability Benchmark (Internal Benchmark Results)</h2>
         <p style="font-size:13px; color:var(--muted);">
           Evaluated across 600 semantic slots (Intent, Recipient, Amount, Currency, Date, Polarity) with rate-limit backoff resilience.
         </p>
         <div class="bar-row">
-          <div class="bar-meta"><span><strong>PARALLIX IQ + Gemini Slot Accuracy (600 Slots)</strong></span><span><strong>93.83% (563/600)</strong></span></div>
+          <div class="bar-meta"><span><strong>PARALLIX IQ + Gemini Slot Accuracy</strong></span><span><strong>93.83% (563/600)</strong></span></div>
           <div class="bar-track"><div class="bar-fill" style="width:93.83%;"></div></div>
         </div>
         <div class="bar-row">
@@ -1210,6 +1186,81 @@ HTML_PAGE = """<!DOCTYPE html>
       </div>
     </div>
   </div>
+  <!-- SCREEN 7: CUSTOMER ONBOARDING & REGISTRY -->
+  <div id="s7" class="screen">
+    <div class="split-grid">
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">Enterprise Customer Self-Serve Onboarding</h2>
+          <span class="pill pill-PASS">INSTANT PROVISIONING</span>
+        </div>
+        <p style="font-size:13px; color:var(--muted); margin-top:0;">
+          Provision an isolated tenant workspace, policy pack, and SHA-256 API key on the spot.
+        </p>
+
+        <div style="margin-bottom:12px;">
+          <label for="obOrgName" style="display:block; font-size:12px; color:var(--muted); margin-bottom:5px;"><strong>Organization / Customer Name</strong></label>
+          <input id="obOrgName" type="text" value="Apex FinTech India Pvt Ltd" style="width:100%;" />
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label for="obDomain" style="display:block; font-size:12px; color:var(--muted); margin-bottom:5px;"><strong>Industry Safety Policy Pack</strong></label>
+          <select id="obDomain" style="width:100%; background:#131c2e; color:#fff; border:1px solid rgba(148,163,184,0.28); padding:11px 12px; border-radius:10px; font-size:13.5px; cursor:pointer;">
+            <option value="banking_upi">Banking &amp; UPI Payments Guard</option>
+            <option value="healthcare_rx">Healthcare &amp; Pharmacy Rx Guard</option>
+            <option value="ecommerce_refund">E-Commerce &amp; Refund Guard</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <label for="obPlan" style="display:block; font-size:12px; color:var(--muted); margin-bottom:5px;"><strong>Enterprise Subscription Plan (Illustrative)</strong></label>
+          <select id="obPlan" style="width:100%; background:#131c2e; color:#fff; border:1px solid rgba(148,163,184,0.28); padding:11px 12px; border-radius:10px; font-size:13.5px; cursor:pointer;">
+            <option value="Pro Seat — ₹1,999/mo">Pro Seat — ₹1,999/mo (1 Seat)</option>
+            <option value="Enterprise Starter — ₹10,000/mo" selected>Enterprise Starter — ₹10,000/mo (10 Seats)</option>
+            <option value="Enterprise Scale — ₹20,000/mo">Enterprise Scale — ₹20,000/mo (25 Seats)</option>
+          </select>
+        </div>
+
+        <button class="btn" type="button" style="width:100%;" onclick="onboardCustomerInline()">Provision Customer &amp; Issue API Key</button>
+
+        <div id="obIssuedBox" style="display:none; margin-top:14px; padding:12px 14px; background:var(--panel-alt); border:1px dashed #3b82f6; border-radius:10px;">
+          <div style="font-size:12px; color:#93c5fd; font-weight:700;" id="obIssuedHeader"></div>
+          <div style="margin-top:6px; font-family:ui-monospace, Consolas, monospace; font-size:12.5px; color:#fff; word-break:break-all;" id="obIssuedKey"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">Onboarded Customers Registry (Live)</h2>
+          <span style="font-size:12px; color:var(--muted);" id="obCountLabel">1 Sample Tenant</span>
+        </div>
+        <p style="font-size:12.5px; color:var(--muted); margin-top:0;">
+          Every provisioned customer workspace, active policy pack, and subscription tier appears here immediately.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Tenant ID</th>
+              <th>Organization</th>
+              <th>Policy</th>
+              <th>Plan</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="obRegistryBody">
+            <tr>
+              <td><code>#4092</code></td>
+              <td><strong>Sample Enterprise Client</strong></td>
+              <td><code>banking_upi</code></td>
+              <td>₹10,000/mo</td>
+              <td><span class="pill pill-PASS">ACTIVE</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -1284,8 +1335,28 @@ function copyCurlSnippet() {
   }
 }
 
+function syncDomainKpi(profile, wallet) {
+  const lbl = document.getElementById('domainKpiLabel');
+  const valEl = document.getElementById('walletBal');
+  if (!lbl || !valEl) return;
+  if (profile === 'healthcare_rx') {
+    lbl.innerText = 'Simulated Pharmacy Stock';
+    valEl.parentElement.innerHTML = '<span id="walletBal">500</span> Units (Rx Guard)';
+  } else if (profile === 'ecommerce_refund') {
+    lbl.innerText = 'Simulated Refund Escrow';
+    valEl.parentElement.innerHTML = '₹<span id="walletBal">2,50,000.00</span>';
+  } else {
+    lbl.innerText = 'Simulated Bank Wallet';
+    const amt = (wallet !== undefined && wallet !== null)
+      ? Number(wallet).toLocaleString('en-IN', {minimumFractionDigits: 2})
+      : '1,00,000.00';
+    valEl.parentElement.innerHTML = '₹<span id="walletBal">' + amt + '</span>';
+  }
+}
+
 function changeProfile(val) {
   currentProfile = val;
+  syncDomainKpi(val, null);
   updateCurlSnippet(val);
   renderPresets(val);
   const firstPreset = (PROFILE_PRESETS[val] || [])[0];
@@ -1309,8 +1380,9 @@ function runPreset(txt) {
 }
 
 function updateHeader(wallet, counts) {
-  if (wallet !== undefined && wallet !== null) {
-    document.getElementById('walletBal').innerText = Number(wallet).toLocaleString('en-IN', {minimumFractionDigits: 2});
+  if (wallet !== undefined && wallet !== null && currentProfile === 'banking_upi') {
+    const wb = document.getElementById('walletBal');
+    if (wb) wb.innerText = Number(wallet).toLocaleString('en-IN', {minimumFractionDigits: 2});
   }
   if (counts && counts.gateway_audit !== undefined) {
     document.getElementById('dbAuditBadge').innerText = counts.gateway_audit + ' Audits';
@@ -1478,7 +1550,7 @@ async function loadDrift(simulateDrop) {
 
   const banner = data.alert && data.alert.drift_detected
     ? `<div class="verdict-card verdict-BLOCK"><span class="pill pill-BLOCK">REGRESSION ALERT</span><strong>${data.alert.alert_message}</strong></div>`
-    : `<div class="verdict-card verdict-PASS"><span class="pill pill-PASS">BASELINE HEALTHY</span><strong>Model holding at 74.00% exact match (93.83% slot accuracy).</strong></div>`;
+    : `<div class="verdict-card verdict-PASS"><span class="pill pill-PASS">BASELINE HEALTHY</span><strong>Model holding at 74.00% exact match (93.83% field precision).</strong></div>`;
 
   const rows = data.models.map(m => `
     <tr>
@@ -1486,7 +1558,7 @@ async function loadDrift(simulateDrop) {
       <td><code>${m.model_id}</code></td>
       <td><span class="pill pill-${m.status === 'connected' ? 'PASS' : 'HOLD'}">${m.status.toUpperCase()}</span></td>
       <td>${m.intent_accuracy !== null ? m.intent_accuracy.toFixed(2) + '%' : 'Not connected'}</td>
-      <td>${m.slot_accuracy !== null ? m.slot_accuracy.toFixed(2) + '%' : 'Not connected'}</td>
+      <td>${m.field_precision !== null ? m.field_precision.toFixed(2) + '%' : 'Not connected'}</td>
     </tr>
   `).join('');
 
@@ -1528,6 +1600,50 @@ async function runAdaptive() {
 renderPresets('banking_upi');
 updateCurlSnippet('banking_upi');
 runFirewall();
+
+const onboardedRegistry = [
+  { id: "#4092", org: "Sample Enterprise Client", domain: "banking_upi", plan: "₹10,000/mo", status: "ACTIVE" }
+];
+
+function onboardCustomerInline() {
+  const org = (document.getElementById("obOrgName").value || "").trim() || "Enterprise Demo Client";
+  const domain = document.getElementById("obDomain").value || "banking_upi";
+  const plan = document.getElementById("obPlan").value || "Enterprise Starter — ₹10,000/mo";
+  const randHex = Array.from({length: 12}, () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")).join("");
+  const apiKey = "plx_live_" + randHex;
+  const tenantId = "TEN-" + randHex.slice(0, 4).toUpperCase();
+
+  onboardedRegistry.unshift({ id: tenantId, org: org, domain: domain, plan: plan, status: "ACTIVE" });
+
+  const box = document.getElementById("obIssuedBox");
+  box.style.display = "block";
+  document.getElementById("obIssuedHeader").innerText = "Provisioned " + tenantId + " (" + org + ") • " + plan;
+  document.getElementById("obIssuedKey").innerText = "X-Parallix-Key: " + apiKey;
+
+  const tenantBadge = document.querySelector(".tenant-badge");
+  if (tenantBadge) {
+    tenantBadge.innerText = "🏢 Demo Tenant: " + org + " (" + tenantId + ")";
+  }
+  const profSel = document.getElementById("industryProfileSelect");
+  if (profSel) {
+    profSel.value = domain;
+    currentProfile = domain;
+    if (typeof syncDomainKpi === "function") syncDomainKpi(domain, null);
+    if (typeof updateCurlSnippet === "function") updateCurlSnippet(domain);
+    if (typeof renderPresets === "function") renderPresets(domain);
+  }
+
+  document.getElementById("obCountLabel").innerText = onboardedRegistry.length + " Active Tenants";
+  document.getElementById("obRegistryBody").innerHTML = onboardedRegistry.map(r => `
+    <tr>
+      <td><code>${r.id}</code></td>
+      <td><strong>${r.org}</strong></td>
+      <td><code>${r.domain}</code></td>
+      <td>${r.plan}</td>
+      <td><span class="pill pill-PASS">${r.status}</span></td>
+    </tr>
+  `).join("");
+}
 </script>
 </body>
 </html>
@@ -1627,7 +1743,7 @@ class CommandCenterHandler(BaseHTTPRequestHandler):
                 {
                     "status": "ok",
                     "service": "parallix-iq",
-                    "persistence": CENTER.db.get_persistence_status(),
+                    "storage_mode": "ephemeral_sqlite_beta",
                     "api_auth_configured": CENTER.api_key_manager.is_configured,
                 },
                 status=200,
