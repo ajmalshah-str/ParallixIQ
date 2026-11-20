@@ -14,6 +14,14 @@ from engines.explainability import ExplainabilityEngine
 from engines.hallucination import HallucinationDetector
 from engines.intent_integrity import IntentIntegrityEngine
 from gateway.interceptor import ActionInterceptionGateway
+from gateway.security import (
+    ApiKeyManager,
+    IdempotencyStore,
+    MAX_BODY_BYTES,
+    SlidingWindowRateLimiter,
+    redact_secrets,
+    sanitize_text,
+)
 from gateway.simulated_bank import SimulatedBankApp
 from storage.audit_db import AuditDatabase
 from storage.schemas import ExtractedAction, ExtractionBundle
@@ -32,6 +40,8 @@ class ParallixCommandCenter:
         self.adaptive_gen = AdaptiveTestGenerator(db=self.db)
         self.activity_feed: list[dict] = []
         self.current_profile: str = "banking_upi"
+        self.api_key_manager = ApiKeyManager()
+        self.idempotency_store = IdempotencyStore()
 
         self.adapter: GeminiAdapter | None = None
         try:
@@ -143,13 +153,54 @@ class ParallixCommandCenter:
             "profile": active_profile,
         }
 
-    def audit_api_request(self, payload: dict, api_key: str | None = None) -> dict:
-        tenant_id = api_key.strip() if api_key and api_key.strip() else payload.get("tenant_id", "growth_tenant")
-        text = payload.get("text") or payload.get("input") or ""
-        profile = payload.get("profile") or "banking_upi"
+    def audit_api_request(
+        self,
+        payload: dict,
+        api_key: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> tuple[int, dict]:
+        if not isinstance(payload, dict):
+            return 400, {"error": "JSON request body must be an object.", "code": "INVALID_PAYLOAD"}
 
-        if "action" in payload and isinstance(payload["action"], dict):
-            action = ExtractedAction(**payload["action"])
+        is_valid, tenant, auth_msg = self.api_key_manager.validate_key(api_key)
+        if not is_valid or tenant is None:
+            return 401, {"error": auth_msg, "code": "UNAUTHORIZED"}
+
+        tenant_id = tenant.tenant_id
+        raw_text = payload.get("text") if "text" in payload else payload.get("input", "")
+        try:
+            text = sanitize_text(raw_text)
+        except ValueError as exc:
+            return 400, {"error": str(exc), "code": "INPUT_TOO_LONG"}
+
+        if not text and "action" not in payload:
+            return 400, {"error": "Field text (or action) is required.", "code": "MISSING_INPUT"}
+
+        profile = sanitize_text(payload.get("profile") or "banking_upi", max_length=64).lower()
+        if profile not in {"banking_upi", "healthcare_rx", "ecommerce_refund"}:
+            return 400, {
+                "error": f"Unsupported profile {profile}. Allowed: banking_upi, healthcare_rx, ecommerce_refund.",
+                "code": "INVALID_PROFILE",
+            }
+
+        idem_status, cached_resp = self.idempotency_store.lookup(tenant_id, idempotency_key, payload)
+        if idem_status == "CONFLICT":
+            return 409, {
+                "error": "X-Idempotency-Key reused with a different request payload.",
+                "code": "IDEMPOTENCY_CONFLICT",
+            }
+        if idem_status == "HIT" and cached_resp is not None:
+            replay = dict(cached_resp)
+            replay["duplicate_prevented"] = True
+            return 200, replay
+
+        if "action" in payload:
+            if not isinstance(payload["action"], dict):
+                return 400, {"error": "Field action must be a JSON object.", "code": "INVALID_ACTION"}
+            try:
+                action = ExtractedAction(**payload["action"])
+            except Exception as exc:
+                return 400, {"error": f"Invalid action schema: {exc}", "code": "INVALID_ACTION_SCHEMA"}
             bundle = ExtractionBundle(actions=[action])
         else:
             bundle = ExtractionBundle(actions=[])
@@ -159,7 +210,6 @@ class ParallixCommandCenter:
                 bundle = self._local_fallback_parse(text)
             action = bundle.actions[0] if bundle.actions else ExtractedAction()
 
-        # Engine 1 -> Engine 4 -> Engine 7
         intent_check = self.intent_engine.audit_runtime(text, bundle)
         decision = self.gateway.inspect_action(
             user_input=text,
@@ -180,7 +230,7 @@ class ParallixCommandCenter:
 
         metered_usage = self.db.increment_tenant_usage(tenant_id)
 
-        return {
+        result = {
             "decision": decision.decision,
             "risk_score": decision.risk_score,
             "extracted_action": action.model_dump(),
@@ -189,7 +239,10 @@ class ParallixCommandCenter:
             "profile": profile,
             "reasons": decision.reasons,
             "tenant_id": tenant_id,
+            "storage_mode": "ephemeral_sqlite_beta",
         }
+        self.idempotency_store.store(tenant_id, idempotency_key, payload, result)
+        return 200, result
 
     def approve_latest_hold(self) -> dict:
         if not self.bank.held_queue:
@@ -871,9 +924,9 @@ HTML_PAGE = """<!DOCTYPE html>
       <span><strong>Live REST API Endpoint:</strong> <code>POST /v1/audit</code> • Header: <code>X-Parallix-Key</code> (Cloud Run & B2B Ready)</span>
       <button class="btn-copy-curl" id="btnCopyCurl" onclick="copyCurlSnippet()">Copy cURL</button>
     </div>
-    <pre id="curlSnippet">curl -X POST http://localhost:8050/v1/audit \
+    <pre id="curlSnippet">curl -X POST https://parallix-iq-927980553219.asia-south1.run.app/v1/audit \
   -H "Content-Type: application/json" \
-  -H "X-Parallix-Key: plx_live_growth_9482" \
+  -H "X-Parallix-Key: YOUR_API_KEY" \
   -d '{"text": "Naale Rahulinu 500 roopa ayakkaruthu", "profile": "banking_upi"}'</pre>
   </div>
 
@@ -1177,9 +1230,12 @@ function updateCurlSnippet(profile) {
   } else if (currentProfile === 'ecommerce_refund') {
     sampleText = "Process refund of 15000 INR for order #4891";
   }
-  const cmd = `curl -X POST http://localhost:8050/v1/audit \\
+  const apiBase = (window.location && window.location.origin && window.location.origin.startsWith('http'))
+    ? window.location.origin
+    : 'https://parallix-iq-927980553219.asia-south1.run.app';
+  const cmd = `curl -X POST ${apiBase}/v1/audit \\
   -H "Content-Type: application/json" \\
-  -H "X-Parallix-Key: plx_live_growth_9482" \\
+  -H "X-Parallix-Key: YOUR_API_KEY" \\
   -d '{"text": "${sampleText}", "profile": "${currentProfile}"}'`;
   const el = document.getElementById('curlSnippet');
   if (el) el.innerText = cmd;
@@ -1446,48 +1502,190 @@ runFirewall();
 """
 
 
+OPENAPI_SPEC = {
+    "openapi": "3.0.3",
+    "info": {
+        "title": "PARALLIX IQ — AI Reliability & Action Interception API",
+        "version": "1.1.0",
+        "description": "Multilingual intent integrity, hallucination verification, and fail-closed AI action gateway API.",
+    },
+    "servers": [
+        {"url": "https://parallix-iq-927980553219.asia-south1.run.app", "description": "Google Cloud Run (asia-south1)"},
+    ],
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Service health and storage status check",
+                "responses": {"200": {"description": "Service healthy"}},
+            }
+        },
+        "/v1/audit": {
+            "post": {
+                "summary": "Audit a natural-language instruction or proposed AI action",
+                "parameters": [
+                    {"name": "X-Parallix-Key", "in": "header", "required": True, "schema": {"type": "string"}},
+                    {"name": "X-Idempotency-Key", "in": "header", "required": False, "schema": {"type": "string"}},
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {"type": "string", "example": "Naale Rahulinu 500 roopa ayakkaruthu"},
+                                    "profile": {
+                                        "type": "string",
+                                        "enum": ["banking_upi", "healthcare_rx", "ecommerce_refund"],
+                                        "default": "banking_upi",
+                                    },
+                                },
+                                "required": ["text"],
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {"description": "Gateway audit decision (PASS, HOLD, or BLOCK)"},
+                    "400": {"description": "Malformed JSON or invalid input"},
+                    "401": {"description": "Missing, invalid, or revoked X-Parallix-Key"},
+                    "409": {"description": "Idempotency key conflict"},
+                    "413": {"description": "Request payload exceeds 64 KB limit"},
+                    "429": {"description": "Rate limit exceeded"},
+                },
+            }
+        },
+    },
+}
+
+
 class CommandCenterHandler(BaseHTTPRequestHandler):
+    rate_limiter = SlidingWindowRateLimiter(max_requests=60, window_seconds=60)
+
     def log_message(self, format: str, *args) -> None:
         return
 
-    def _send_json(self, payload: dict, status: int = 200) -> None:
+    def _client_ip(self) -> str:
+        forwarded = self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        return forwarded or (self.client_address[0] if self.client_address else "unknown")
+
+    def _send_security_headers(self, is_json: bool = False) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        if is_json:
+            self.send_header("Cache-Control", "no-store")
+
+    def _send_json(self, payload: dict, status: int = 200, extra_headers: dict[str, str] | None = None) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
+        self._send_security_headers(is_json=True)
+        if extra_headers:
+            for k, v in extra_headers.items():
+                self.send_header(k, v)
         self.end_headers()
         self.wfile.write(raw)
 
     def do_GET(self) -> None:
+        route = self.path.split("?", 1)[0]
+        if route == "/health":
+            self._send_json(
+                {
+                    "status": "ok",
+                    "service": "parallix-iq",
+                    "storage_mode": "ephemeral_sqlite_beta",
+                    "api_auth_configured": CENTER.api_key_manager.is_configured,
+                },
+                status=200,
+            )
+            return
+        if route == "/openapi.json":
+            self._send_json(OPENAPI_SPEC, status=200)
+            return
+        if route != "/":
+            self._send_json({"error": "Not found", "code": "NOT_FOUND"}, status=404)
+            return
+
         html_bytes = HTML_PAGE.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(html_bytes)))
+        self._send_security_headers(is_json=False)
         self.end_headers()
         self.wfile.write(html_bytes)
 
     def do_POST(self) -> None:
-        length = int(self.headers.get("Content-Length", "0"))
-        raw_body = self.rfile.read(length).decode("utf-8") if length > 0 else "{}"
-        body = json.loads(raw_body)
+        allowed, retry_after = self.rate_limiter.check(self._client_ip())
+        if not allowed:
+            self._send_json(
+                {"error": "Rate limit exceeded. Please retry later.", "code": "RATE_LIMITED"},
+                status=429,
+                extra_headers={"Retry-After": str(retry_after)},
+            )
+            return
 
-        if self.path == "/v1/audit":
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self._send_json({"error": "Invalid Content-Length header.", "code": "BAD_REQUEST"}, status=400)
+            return
+
+        if length < 0 or length > MAX_BODY_BYTES:
+            self._send_json(
+                {"error": f"Payload exceeds {MAX_BODY_BYTES} byte limit.", "code": "PAYLOAD_TOO_LARGE"},
+                status=413,
+            )
+            return
+
+        try:
+            raw_body = self.rfile.read(length).decode("utf-8") if length > 0 else "{}"
+            body = json.loads(raw_body)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._send_json({"error": "Malformed JSON request body.", "code": "INVALID_JSON"}, status=400)
+            return
+
+        if not isinstance(body, dict):
+            self._send_json({"error": "JSON body must be an object.", "code": "INVALID_PAYLOAD"}, status=400)
+            return
+
+        route = self.path.split("?", 1)[0]
+        if route == "/v1/audit":
             api_key = self.headers.get("X-Parallix-Key")
-            self._send_json(CENTER.audit_api_request(body, api_key))
-        elif self.path == "/api/evaluate":
-            self._send_json(CENTER.evaluate_instruction(body.get("text", ""), body.get("profile", "banking_upi")))
-        elif self.path == "/api/approve_hold":
+            idempotency_key = self.headers.get("X-Idempotency-Key")
+            status_code, resp = CENTER.audit_api_request(body, api_key, idempotency_key=idempotency_key)
+            self._send_json(resp, status=status_code)
+        elif route == "/api/evaluate":
+            try:
+                clean_text = sanitize_text(body.get("text", ""))
+                clean_profile = sanitize_text(body.get("profile", "banking_upi"), max_length=64)
+            except ValueError as exc:
+                self._send_json({"error": str(exc), "code": "INVALID_INPUT"}, status=400)
+                return
+            self._send_json(CENTER.evaluate_instruction(clean_text, clean_profile))
+        elif route == "/api/approve_hold":
             self._send_json(CENTER.approve_latest_hold())
-        elif self.path == "/api/hallucination":
-            self._send_json(CENTER.check_hallucination(body.get("text", "")))
-        elif self.path == "/api/counterfactual":
-            self._send_json(CENTER.generate_counterfactuals(body.get("text", "")))
-        elif self.path == "/api/drift":
+        elif route == "/api/hallucination":
+            try:
+                clean_text = sanitize_text(body.get("text", ""))
+            except ValueError as exc:
+                self._send_json({"error": str(exc), "code": "INVALID_INPUT"}, status=400)
+                return
+            self._send_json(CENTER.check_hallucination(clean_text))
+        elif route == "/api/counterfactual":
+            try:
+                clean_text = sanitize_text(body.get("text", ""))
+            except ValueError as exc:
+                self._send_json({"error": str(exc), "code": "INVALID_INPUT"}, status=400)
+                return
+            self._send_json(CENTER.generate_counterfactuals(clean_text))
+        elif route == "/api/drift":
             self._send_json(CENTER.check_drift_and_models(bool(body.get("simulate_drop", False))))
-        elif self.path == "/api/adaptive":
+        elif route == "/api/adaptive":
             self._send_json(CENTER.generate_adaptive_suite())
         else:
-            self._send_json({"error": "Not found"}, status=404)
+            self._send_json({"error": "Not found", "code": "NOT_FOUND"}, status=404)
 
 
 def main() -> None:
