@@ -903,8 +903,8 @@ HTML_PAGE = """<!DOCTYPE html>
   <!-- TOP SAAS TENANT & INDUSTRY PROFILE BAR -->
   <div class="saas-bar">
     <div class="saas-left">
-      <span class="tenant-badge">🏢 Tenant: Enterprise Client #4092</span>
-      <span class="tier-badge">💎 Growth Tier: ₹1.5 Lakh/mo</span>
+      <span class="tenant-badge">Demo Tenant — Sample Enterprise Profile (SIMULATED)</span>
+      <span class="tier-badge">Illustrative Enterprise Pricing — ₹1.5 Lakh/mo (Not an Actual Subscription)</span>
     </div>
 
     <div class="saas-center">
@@ -947,7 +947,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     <div class="kpi-row">
       <div class="kpi-card">
-        <div class="kpi-label">Simulated Bank Wallet</div>
+        <div class="kpi-label">Simulated Bank Wallet (DEMO — No Real Money)</div>
         <div class="kpi-val green">₹<span id="walletBal">100,000.00</span></div>
       </div>
       <div class="kpi-card">
@@ -955,9 +955,33 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="kpi-val blue">93.83%</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">SQLite Audit Records</div>
+        <div class="kpi-label">SQLite Audit Records (EPHEMERAL BETA)</div>
         <div class="kpi-val" id="dbAuditBadge">—</div>
       </div>
+    </div>
+  </div>
+
+  <!-- 4-SYSTEM ARCHITECTURE OVERVIEW -->
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-bottom:18px;">
+    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(59,130,246,0.3); border-radius:12px; padding:12px 14px;">
+      <div style="font-size:11px; font-weight:800; letter-spacing:0.08em; color:#60a5fa;">1. UNDERSTAND <span style="background:rgba(16,185,129,0.18); color:#6ee7b7; padding:2px 6px; border-radius:4px; margin-left:4px;">LIVE</span></div>
+      <div style="font-size:13px; font-weight:700; margin-top:4px;">Engine 1: Multilingual Intent Integrity</div>
+      <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Detects negation reversals, conditions, and Indic suffix mismatches across English, Malayalam, Manglish, Hindi &amp; Hinglish.</div>
+    </div>
+    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(99,102,241,0.3); border-radius:12px; padding:12px 14px;">
+      <div style="font-size:11px; font-weight:800; letter-spacing:0.08em; color:#a5b4fc;">2. VERIFY <span style="background:rgba(59,130,246,0.18); color:#93c5fd; padding:2px 6px; border-radius:4px; margin-left:4px;">BETA / PLANNED</span></div>
+      <div style="font-size:13px; font-weight:700; margin-top:4px;">Engines 2, 3 &amp; 6: Hallucination, Counterfactual &amp; Arena</div>
+      <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Evidence claim verification, 1-variable counterfactual mutations, Gemini consensus (OpenAI/Anthropic/Ollama: PLANNED).</div>
+    </div>
+    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(16,185,129,0.35); border-radius:12px; padding:12px 14px;">
+      <div style="font-size:11px; font-weight:800; letter-spacing:0.08em; color:#34d399;">3. PROTECT <span style="background:rgba(16,185,129,0.18); color:#6ee7b7; padding:2px 6px; border-radius:4px; margin-left:4px;">LIVE</span></div>
+      <div style="font-size:13px; font-weight:700; margin-top:4px;">Engine 4: AI Action Interception Gateway</div>
+      <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Fail-closed PASS / HOLD / BLOCK firewall sitting between AI outputs and downstream execution tools.</div>
+    </div>
+    <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(245,158,11,0.3); border-radius:12px; padding:12px 14px;">
+      <div style="font-size:11px; font-weight:800; letter-spacing:0.08em; color:#fbbf24;">4. IMPROVE <span style="background:rgba(245,158,11,0.18); color:#fcd34d; padding:2px 6px; border-radius:4px; margin-left:4px;">BETA</span></div>
+      <div style="font-size:13px; font-weight:700; margin-top:4px;">Engines 5, 7 &amp; 8: Drift, Explainability &amp; Adaptive Tests</div>
+      <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Historical regression alerts, root-cause JSON/Markdown failure reports, and failure-driven test generation.</div>
     </div>
   </div>
 
@@ -1126,7 +1150,10 @@ HTML_PAGE = """<!DOCTYPE html>
   <div id="s6" class="screen">
     <div class="split-grid">
       <div class="card">
-        <h2 class="card-title">100-Point Indic Reliability Benchmark (Verified Results)</h2>
+        <h2 class="card-title">Internal Benchmark Results — 100 Test Cases (audit-v2.0)</h2>
+        <div style="font-size:12px; color:#fbbf24; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:8px 10px; margin-bottom:10px;">
+          <strong>Methodology &amp; Split Disclosure:</strong> Internal benchmark curated by the founder (100 unique prompts: 53 Development-Overlap + 47 Held-Out Expansion). Gemini snapshot (<code>gemini-flash-lite-latest</code>): 74.00% exact-match, 93.83% slot-level precision. Offline deterministic baseline: 4.00% exact-match, 91.48% non-null field precision. Not yet externally audited.
+        </div>
         <p style="font-size:13px; color:var(--muted);">
           Evaluated across 600 semantic slots (Intent, Recipient, Amount, Currency, Date, Polarity) with rate-limit backoff resilience.
         </p>
