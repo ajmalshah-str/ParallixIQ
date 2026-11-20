@@ -333,7 +333,7 @@ class ParallixCommandCenter:
         models = build_comparison_table(
             gemini_metrics={
                 "intent_accuracy": 74.00,
-                "field_precision": 93.83,
+                "slot_accuracy": 93.83,
                 "safety_pass_rate": 100.0,
                 "avg_latency_ms": 620.0,
             }
@@ -951,7 +951,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="kpi-val green">₹<span id="walletBal">100,000.00</span></div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-label">Indic Field Precision</div>
+        <div class="kpi-label">Slot-Level Accuracy</div>
         <div class="kpi-val blue">93.83%</div>
       </div>
       <div class="kpi-card">
@@ -1004,7 +1004,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="pipe-status" id="node1Sub">Waiting for prompt</div>
       </div>
       <div class="pipe-node" id="node2">
-        <div class="pipe-step">Stage 2 • Engine 6</div>
+        <div class="pipe-step">Stage 2 • Extraction</div>
         <div class="pipe-name">Structured AI Parse</div>
         <div class="pipe-status" id="node2Sub">Pydantic schema enforced</div>
       </div>
@@ -1021,7 +1021,7 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="pipe-node" id="node5">
         <div class="pipe-step">Stage 5 • Engine 7</div>
         <div class="pipe-name">Bank & SQLite Ledger</div>
-        <div class="pipe-status" id="node5Sub">Tamper-evident audit</div>
+        <div class="pipe-status" id="node5Sub">Append-only SQLite audit log (ephemeral)</div>
       </div>
     </div>
 
@@ -1073,7 +1073,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <button class="btn-secondary" id="approveHoldBtn" onclick="approveHold()" style="display:none;">Approve Held Transfer</button>
         </div>
         <p style="font-size:12.5px; color:var(--muted); margin-top:0;">
-          Every proposed action is logged to <code>parallix_audit.db</code> before balances move.
+          Proposed actions are recorded to <code>parallix_audit.db</code> (ephemeral container storage in beta) before simulated wallet updates.
         </p>
         <div id="liveFeed">
           <div style="color:var(--muted); font-size:13px; padding:12px 0;">No transactions evaluated in this session yet.</div>
@@ -1125,7 +1125,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <h2 class="card-title">Engines 5 & 6 — Drift Monitor & Provider Comparison Matrix</h2>
         <div style="display:flex; gap:8px;">
           <button class="btn-secondary" onclick="loadDrift(false)">Refresh SQLite Baseline</button>
-          <button class="btn" onclick="loadDrift(true)">Simulate 12.5% Regression Drop</button>
+          <button class="btn" onclick="loadDrift(true)">Simulate 12.5% Drop (Demo)</button>
         </div>
       </div>
       <div id="driftOutput"></div>
@@ -1158,7 +1158,7 @@ HTML_PAGE = """<!DOCTYPE html>
           Evaluated across 600 semantic slots (Intent, Recipient, Amount, Currency, Date, Polarity) with rate-limit backoff resilience.
         </p>
         <div class="bar-row">
-          <div class="bar-meta"><span><strong>PARALLIX IQ + Gemini Field Precision</strong></span><span><strong>93.83% (563/600)</strong></span></div>
+          <div class="bar-meta"><span><strong>PARALLIX IQ + Gemini Slot Accuracy (600 Slots)</strong></span><span><strong>93.83% (563/600)</strong></span></div>
           <div class="bar-track"><div class="bar-fill" style="width:93.83%;"></div></div>
         </div>
         <div class="bar-row">
@@ -1478,7 +1478,7 @@ async function loadDrift(simulateDrop) {
 
   const banner = data.alert && data.alert.drift_detected
     ? `<div class="verdict-card verdict-BLOCK"><span class="pill pill-BLOCK">REGRESSION ALERT</span><strong>${data.alert.alert_message}</strong></div>`
-    : `<div class="verdict-card verdict-PASS"><span class="pill pill-PASS">BASELINE HEALTHY</span><strong>Model holding at 74.00% exact match (93.83% field precision).</strong></div>`;
+    : `<div class="verdict-card verdict-PASS"><span class="pill pill-PASS">BASELINE HEALTHY</span><strong>Model holding at 74.00% exact match (93.83% slot accuracy).</strong></div>`;
 
   const rows = data.models.map(m => `
     <tr>
@@ -1486,14 +1486,14 @@ async function loadDrift(simulateDrop) {
       <td><code>${m.model_id}</code></td>
       <td><span class="pill pill-${m.status === 'connected' ? 'PASS' : 'HOLD'}">${m.status.toUpperCase()}</span></td>
       <td>${m.intent_accuracy !== null ? m.intent_accuracy.toFixed(2) + '%' : 'Not connected'}</td>
-      <td>${m.field_precision !== null ? m.field_precision.toFixed(2) + '%' : 'Not connected'}</td>
+      <td>${m.slot_accuracy !== null ? m.slot_accuracy.toFixed(2) + '%' : 'Not connected'}</td>
     </tr>
   `).join('');
 
   document.getElementById('driftOutput').innerHTML = `
     ${banner}
     <table>
-      <thead><tr><th>Provider</th><th>Model ID</th><th>Adapter Status</th><th>Exact Match</th><th>Field Precision</th></tr></thead>
+      <thead><tr><th>Provider</th><th>Model ID</th><th>Adapter Status</th><th>Exact Match</th><th>Slot Accuracy</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
