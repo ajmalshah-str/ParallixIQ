@@ -952,11 +952,14 @@ HTML_PAGE = """<!DOCTYPE html>
 
   <!-- LIVE COPYABLE CURL SNIPPET -->
   <div class="curl-strip" id="curlSnippetContainer">
-    <div class="curl-head">
+    <div class="curl-head" style="margin-bottom:0;">
       <span><strong>Live REST API Endpoint:</strong> <code>POST /v1/audit</code> • Header: <code>X-Parallix-Key</code> (Cloud Run & B2B Ready)</span>
-      <button class="btn-copy-curl" id="btnCopyCurl" onclick="copyCurlSnippet()">Copy cURL</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn-copy-curl" id="btnToggleCurl" type="button" onclick="toggleCurlSnippet()">Show cURL</button>
+        <button class="btn-copy-curl" id="btnCopyCurl" type="button" onclick="copyCurlSnippet()">Copy cURL</button>
+      </div>
     </div>
-    <pre id="curlSnippet">curl -X POST https://parallix-iq-927980553219.asia-south1.run.app/v1/audit \
+    <pre id="curlSnippet" style="display:none; margin-top:8px;">curl -X POST https://parallix-iq-927980553219.asia-south1.run.app/v1/audit \
   -H "Content-Type: application/json" \
   -H "X-Parallix-Key: YOUR_API_KEY" \
   -d '{"text": "Naale Rahulinu 500 roopa ayakkaruthu", "profile": "banking_upi"}'</pre>
@@ -1347,6 +1350,15 @@ function updateCurlSnippet(profile) {
   -d '{"text": "${sampleText}", "profile": "${currentProfile}"}'`;
   const el = document.getElementById('curlSnippet');
   if (el) el.innerText = cmd;
+}
+
+function toggleCurlSnippet() {
+  const pre = document.getElementById('curlSnippet');
+  const btn = document.getElementById('btnToggleCurl');
+  if (!pre || !btn) return;
+  const isHidden = pre.style.display === 'none' || getComputedStyle(pre).display === 'none';
+  pre.style.display = isHidden ? 'block' : 'none';
+  btn.innerText = isHidden ? 'Hide cURL' : 'Show cURL';
 }
 
 function copyCurlSnippet() {
